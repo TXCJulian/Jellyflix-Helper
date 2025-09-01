@@ -14,10 +14,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # App-Code kopieren
 COPY app/ app/
-COPY dependencies/ dependencies/
+#COPY dependencies/ dependencies/
 
 # Port
-EXPOSE 5000
+EXPOSE 3333
 
 # Startbefehl
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3333"]
