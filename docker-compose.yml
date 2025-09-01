@@ -6,9 +6,9 @@ services:
     ports:
       - "3333:3333"
     environment:
-      - BASE_PATH=/TV Shows
-      - VALID_EXT=[".mp4",".mkv",".avi"]
-      - TMDB_API_KEY=e3ee010a10084bde17623ff3f994145a
+      - "BASE_PATH=/tvshows"
+      - "VALID_EXT=[\".mp4\",\".mkv\",\".avi\"]"
+      - "TMDB_API_KEY=e3ee010a10084bde17623ff3f994145a"
     volumes:
       - ./dependencies/.env:/app/dependencies/.env:ro
-      - /BASE_PATH:/tvshows    
+      - ./tvshows:/tvshows
