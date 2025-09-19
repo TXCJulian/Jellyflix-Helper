@@ -1,8 +1,6 @@
 from fastapi import FastAPI, Request, Form
-from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-import uvicorn
 import os
 
 from rename_tmdb import rename_episodes
@@ -12,11 +10,16 @@ load_dotenv("dependencies/.env")
 BASE_PATH = os.getenv("BASE_PATH")
 VALID_EXT = set(eval(os.getenv("VALID_EXT", "{}")))
 
-templates = Jinja2Templates(directory="app/templates")
-
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
+# CORS erlauben für Frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def has_valid_files(path):
     for _, _, files in os.walk(path):
@@ -24,7 +27,6 @@ def has_valid_files(path):
             if any(f.lower().endswith(ext.lower()) for ext in VALID_EXT):
                 return True
     return False
-
 
 def get_dirs(base):
     directories = []
@@ -37,21 +39,12 @@ def get_dirs(base):
                 directories.append(rel_path.replace("\\", "/"))
     return sorted(directories)
 
+@app.get("/directories")
+def list_directories():
+    return {"directories": get_dirs(BASE_PATH)}
 
-@app.get("/")
-def index(request: Request):
-    dirs = get_dirs(BASE_PATH)
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "directories": dirs,
-        "log": "",
-        "error": None
-    })
-
-
-@app.post("/")
-def rename(
-    request: Request,
+@app.post("/rename")
+async def rename(
     series: str = Form(...),
     season: int = Form(...),
     directory: str = Form(...),
@@ -62,12 +55,7 @@ def rename(
 ):
     path = os.path.join(BASE_PATH, directory)
     if not os.path.isdir(path):
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "directories": get_dirs(BASE_PATH),
-            "log": "",
-            "error": "Ordner nicht gefunden"
-        })
+        return {"success": False, "error": "Ordner nicht gefunden", "log": [], "directories": get_dirs(BASE_PATH)}
 
     logs, error = rename_episodes(
         series=series,
@@ -78,14 +66,8 @@ def rename(
         threshold=threshold,
         assign_seq=assign_seq
     )
-
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "directories": get_dirs(BASE_PATH),
-        "log": "\n".join(logs),
-        "error": error
-    })
-
+    return {"success": error is None, "error": error, "log": logs, "directories": get_dirs(BASE_PATH)}
 
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run("main:app", port=3333)

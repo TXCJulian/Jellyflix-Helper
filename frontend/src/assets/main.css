@@ -1,0 +1,61 @@
+@import './base.css';
+
+/* Grundlayout */
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#app {
+  width: 100%;
+  max-width: 700px;
+  text-align: center;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+/* Formular & Felder */
+.form-container,
+.log-container {
+  width: 100%;
+  margin: 1rem auto;
+  text-align: left;
+}
+
+input, select, button, pre {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+/* Hintergrund der Log-Ausgabe wie Input-Felder */
+pre {
+  background: #1e1e1e; /* gleiche Farbe wie Inputs */
+  border: none;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+/* Fehlerfeld */
+.error-container {
+  color: red;
+  margin-top: 1rem;
+}
+
+/* Buttons */
+button {
+  cursor: pointer;
+}
+
+.submit-container {
+  text-align: right;
+}
