@@ -4,9 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 import uvicorn
 import os
-import sys
 
-from app.rename_tmdb import rename_episodes
+from rename_tmdb import rename_episodes
 
 load_dotenv("dependencies/.env")
 
@@ -89,4 +88,4 @@ def rename(
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", port=3333, workers=2)
+    uvicorn.run("main:app", port=3333)
