@@ -1,48 +1,48 @@
 <template>
-  <div id="app">
+  <div id="app" class="app">
     <h1>Episode Renamer</h1>
     <form @submit.prevent="submitRename" class="form-container">
       <div>
-        <label>Serie:</label>
-        <input v-model="form.series" type="text" required />
+        <label class="label_serie" for="series">Serie:</label>
+        <input id="series" v-model="form.series" type="text" required />
       </div>
       <div>
-        <label>Staffel:</label>
-        <input v-model.number="form.season" type="number" min="1" required />
+        <label for="season">Staffel:</label>
+        <input id="season" v-model.number="form.season" type="number" min="1" required />
       </div>
       <div>
-        <label>Verzeichnis:</label>
-        <select v-model="form.directory" required>
+        <label for="directory">Verzeichnis:</label>
+        <select id="directory" v-model="form.directory" required>
           <option v-for="dir in directories" :key="dir" :value="dir">{{ dir }}</option>
         </select>
         <button type="button" @click="fetchDirectories">Verzeichnisse neu laden</button>
       </div>
       <div>
-        <label>Sprache:</label>
-        <select v-model="form.lang">
+        <label for="lang">Sprache:</label>
+        <select id="lang" v-model="form.lang">
           <option value="de">Deutsch</option>
           <option value="en">Englisch</option>
         </select>
       </div>
-      <div>
-        <label>--dry-run</label>
-        <input v-model="form.dry_run" type="checkbox" />
+      <div class="checkbox-group">
+        <input id="dry_run" v-model="form.dry_run" type="checkbox" />
+        <label for="dry_run">--dry-run</label>
+      </div>
+      <div class="checkbox-group">
+        <input id="assign_seq" v-model="form.assign_seq" type="checkbox" />
+        <label for="assign_seq">--assign-seq</label>
       </div>
       <div>
-        <label>--assign-seq</label>
-        <input v-model="form.assign_seq" type="checkbox" />
+        <label for="threshold">Match Threshold:</label>
+        <input id="threshold" v-model.number="form.threshold" type="number" step="0.05" min="0" max="1" />
       </div>
       <div>
-        <label>Match Threshold:</label>
-        <input v-model.number="form.threshold" type="number" step="0.01" min="0" max="1" />
-      </div>
-      <div class="submit-container">
         <button type="submit">Umbenennen</button>
       </div>
     </form>
 
     <div v-if="log.length" class="log-container">
-      <h3>Log</h3>
+      <h3 v-show="none">Log</h3>
       <pre>{{ log.join('\n') }}</pre>
     </div>
 
