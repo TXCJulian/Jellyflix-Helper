@@ -5,23 +5,45 @@
     <form @submit.prevent="submitRename" class="form-container">
       <div>
         <label class="label_serie" for="series">Serie:</label>
-        <input id="series" v-model="form.series" type="text" placeholder="Name der Serie" required />
+        <input
+          id="series"
+          v-model="form.series"
+          type="text"
+          placeholder="Name der Serie"
+          required
+        />
       </div>
 
       <div>
         <label for="season">Staffel:</label>
-        <input id="season" v-model.number="form.season" type="number" min="1" required />
+        <input
+          id="season"
+          v-model.number="form.season"
+          type="number"
+          min="1"
+          required
+        />
       </div>
 
       <div>
         <label for="directory">Verzeichnis:</label>
-        <select id="directory" v-model="form.directory" :disabled="isLoadingDirs || isRenaming" required>
+        <select
+          id="directory"
+          v-model="form.directory"
+          :disabled="isLoadingDirs || isRenaming"
+          required
+        >
           <option v-for="dir in directories" :key="dir" :value="dir">
             {{ dir }}
           </option>
         </select>
 
-        <button type="button" @click="refreshDirectories" :disabled="isLoadingDirs || isRenaming" class="btn-refresh">
+        <button
+          type="button"
+          @click="refreshDirectories"
+          :disabled="isLoadingDirs || isRenaming"
+          class="btn-refresh"
+        >
           <span v-if="isLoadingDirs" class="loader-sm"></span>
           <span v-else>Verzeichnisse neu laden</span>
         </button>
@@ -46,11 +68,22 @@
 
       <div>
         <label for="threshold">Match Threshold:</label>
-        <input id="threshold" v-model.number="form.threshold" type="number" step="0.05" min="0" max="1" />
+        <input
+          id="threshold"
+          v-model.number="form.threshold"
+          type="number"
+          step="0.05"
+          min="0"
+          max="1"
+        />
       </div>
 
       <div>
-        <button type="submit" :disabled="isRenaming || isLoadingDirs" class="btn-rename">
+        <button
+          type="submit"
+          :disabled="isRenaming || isLoadingDirs"
+          class="btn-rename"
+        >
           <span v-if="isRenaming" class="loader"></span>
           <span v-else>Umbenennen</span>
         </button>
@@ -58,8 +91,7 @@
     </form>
 
     <div v-if="log.length" class="log-container">
-      <h3 v-if="false">Log</h3>
-      <pre>{{ log.join('\n') }}</pre>
+      <pre>{{ log.join("\n") }}</pre>
     </div>
 
     <div v-if="error" class="error-container">
@@ -89,6 +121,8 @@ export default {
       error: "",
       isLoadingDirs: false,
       isRenaming: false,
+      // ① Basis-URL aus Vite-Env
+      API_BASE: import.meta.env.VITE_API_BASE_URL || "http://localhost:3332",
     };
   },
   created() {
@@ -110,7 +144,8 @@ export default {
       this.isLoadingDirs = true;
       this.error = "";
 
-      const url = new URL("http://localhost:3333/directories");
+      // ② benutze dynamische Basis-URL
+      const url = new URL(`${this.API_BASE}/directories`);
       if (series) url.searchParams.set("series", series);
       if (season !== null && season !== "") {
         url.searchParams.set("season", season);
@@ -120,7 +155,6 @@ export default {
         const res = await fetch(url);
         const data = await res.json();
         this.directories = data.directories;
-
         if (
           this.directories.length > 0 &&
           (!this.form.directory ||
@@ -140,7 +174,7 @@ export default {
       this.error = "";
 
       try {
-        await fetch("http://localhost:3333/directories/refresh", {
+        await fetch(`${this.API_BASE}/directories/refresh`, {
           method: "POST",
         });
         await this.fetchDirectories(this.form.series, this.form.season);
@@ -162,7 +196,7 @@ export default {
       );
 
       try {
-        const res = await fetch("http://localhost:3333/rename", {
+        const res = await fetch(`${this.API_BASE}/rename`, {
           method: "POST",
           body: formData,
         });

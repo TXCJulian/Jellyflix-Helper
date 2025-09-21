@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  renamer-backend:
+    image: bosscock/episode-renamer:backend
+    container_name: episode-renamer-backend
+    restart: unless-stopped
+
+    environment:
+      - TMDB_API_KEY=
+      - VALID_EXT={'.mp4', '.mkv', '.mov', '.avi'}
+      - BASE_PATH=/tvshows
+
+    ports:
+      - "3332:3332"
+
+    volumes:
+      - ./tvshows:/tvshows
+
+  renamer-frontend:
+    image: bosscock/episode-renamer:frontend
+    container_name: episode-renamer-frontend
+    restart: unless-stopped
+
+    ports:
+      - "3333:3000"
+
+    depends_on:
+      - renamer-backend
