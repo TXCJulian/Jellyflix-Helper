@@ -5,23 +5,47 @@
     <form @submit.prevent="submitRename" class="form-container">
       <div>
         <label class="label_serie" for="series">Serie:</label>
-        <input id="series" v-model="form.series" type="text" placeholder="Name der Serie" required />
+        <input
+          id="series"
+          v-model="form.series"
+          type="text"
+          placeholder="Name der Serie"
+          required
+        />
       </div>
 
       <div>
         <label for="season">Staffel:</label>
-        <input id="season" v-model.number="form.season" type="number" min="1" required />
+        <input
+          id="season"
+          v-model.number="form.season"
+          type="number"
+          min="1"
+          required
+        />
       </div>
 
       <div>
         <label for="directory">Verzeichnis:</label>
-        <select id="directory" v-model="form.directory" required>
+        <select
+          id="directory"
+          v-model="form.directory"
+          :disabled="isLoadingDirs || isRenaming"
+          required
+        >
           <option v-for="dir in directories" :key="dir" :value="dir">
             {{ dir }}
           </option>
         </select>
-        <button type="button" @click="refreshDirectories">
-          Verzeichnisse neu laden
+
+        <button
+          type="button"
+          @click="refreshDirectories"
+          :disabled="isLoadingDirs || isRenaming"
+          class="btn-refresh"
+        >
+          <span v-if="isLoadingDirs" class="loader-sm"></span>
+          <span v-else>Verzeichnisse neu laden</span>
         </button>
       </div>
 
@@ -44,17 +68,30 @@
 
       <div>
         <label for="threshold">Match Threshold:</label>
-        <input id="threshold" v-model.number="form.threshold" type="number" step="0.05" min="0" max="1" />
+        <input
+          id="threshold"
+          v-model.number="form.threshold"
+          type="number"
+          step="0.05"
+          min="0"
+          max="1"
+        />
       </div>
 
       <div>
-        <button type="submit">Umbenennen</button>
+        <button
+          type="submit"
+          :disabled="isRenaming || isLoadingDirs"
+          class="btn-rename"
+        >
+          <span v-if="isRenaming" class="loader"></span>
+          <span v-else>Umbenennen</span>
+        </button>
       </div>
     </form>
 
     <div v-if="log.length" class="log-container">
-      <h3>Log</h3>
-      <pre>{{ log.join('\n') }}</pre>
+      <pre>{{ log.join("\n") }}</pre>
     </div>
 
     <div v-if="error" class="error-container">
@@ -73,23 +110,26 @@ export default {
       directories: [],
       form: {
         series: "",
-        season: 1,          // Default-Staffel 1
+        season: 1,
         directory: "",
         dry_run: true,
         assign_seq: false,
-        threshold: 0.6,
+        threshold: 0.75,
         lang: "de",
       },
       log: [],
       error: "",
+      isLoadingDirs: false,
+      isRenaming: false,
+      // ① Basis-URL aus Vite-Env
+      API_BASE: import.meta.env.VITE_API_BASE_URL || "http://localhost:3332",
     };
   },
   created() {
     this.debouncedFetch = debounce(this.fetchDirectories, 300);
   },
   mounted() {
-    -   this.fetchDirectories();
-    +   this.fetchDirectories(this.form.series, this.form.season);
+    this.fetchDirectories(this.form.series, this.form.season);
   },
   watch: {
     "form.series"(newSeries) {
@@ -99,10 +139,13 @@ export default {
       this.debouncedFetch(this.form.series, newSeason);
     },
   },
-  methods:
-  {
+  methods: {
     async fetchDirectories(series = "", season = null) {
-      const url = new URL("http://localhost:3333/directories");
+      this.isLoadingDirs = true;
+      this.error = "";
+
+      // ② benutze dynamische Basis-URL
+      const url = new URL(`${this.API_BASE}/directories`);
       if (series) url.searchParams.set("series", series);
       if (season !== null && season !== "") {
         url.searchParams.set("season", season);
@@ -112,7 +155,6 @@ export default {
         const res = await fetch(url);
         const data = await res.json();
         this.directories = data.directories;
-
         if (
           this.directories.length > 0 &&
           (!this.form.directory ||
@@ -120,51 +162,54 @@ export default {
         ) {
           this.form.directory = this.directories[0];
         }
-      }
-      catch {
+      } catch {
         this.error = "Fehler beim Laden der Verzeichnisse";
+      } finally {
+        this.isLoadingDirs = false;
       }
     },
 
-
-    refreshDirectories() {
-      fetch("http://localhost:3333/directories/refresh", {
-        method: "POST",
-      })
-        .then(() => {
-          -         this.fetchDirectories(this.form.series);
-          +         this.fetchDirectories(this.form.series, this.form.season);
-        })
-        .catch(() => {
-          this.error = "Fehler beim Aktualisieren der Verzeichnisse";
-        });
-    },
-
-    submitRename() {
-      this.log = [];
+    async refreshDirectories() {
+      this.isLoadingDirs = true;
       this.error = "";
 
-      const formData = new FormData();
-      Object.entries(this.form).forEach(([key, val]) => {
-        formData.append(key, val);
-      });
-
-      fetch("http://localhost:3333/rename", {
-        method: "POST",
-        body: formData,
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) this.error = data.error;
-          this.log = data.log || [];
-
-          if (data.directories) {
-            this.directories = data.directories;
-          }
-        })
-        .catch(() => {
-          this.error = "Fehler beim Umbenennen.";
+      try {
+        await fetch(`${this.API_BASE}/directories/refresh`, {
+          method: "POST",
         });
+        await this.fetchDirectories(this.form.series, this.form.season);
+      } catch {
+        this.error = "Fehler beim Aktualisieren der Verzeichnisse";
+      } finally {
+        this.isLoadingDirs = false;
+      }
+    },
+
+    async submitRename() {
+      this.isRenaming = true;
+      this.error = "";
+      this.log = [];
+
+      const formData = new FormData();
+      Object.entries(this.form).forEach(([key, val]) =>
+        formData.append(key, val)
+      );
+
+      try {
+        const res = await fetch(`${this.API_BASE}/rename`, {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+
+        if (data.error) this.error = data.error;
+        this.log = data.log || [];
+        if (data.directories) this.directories = data.directories;
+      } catch {
+        this.error = "Fehler beim Umbenennen.";
+      } finally {
+        this.isRenaming = false;
+      }
     },
   },
 };

@@ -420,4 +420,9 @@ FodyWeavers.xsd
 #extensions
 *.env
 *.venv
+frontend/*.vscode
+backend/*.vscode
 *.vscode
+
+/frontend/node_modules/
+/backend/app/__pycache__

@@ -1,11 +1,12 @@
 from fastapi import FastAPI, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from functools import lru_cache
 import os
-import re
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 from rename_tmdb import rename_episodes
+from get_dirs import _get_all_dirs_cached 
 
 load_dotenv("dependencies/.env")
 
@@ -22,27 +23,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def has_valid_files(path: str) -> bool:
-    for _, _, files in os.walk(path):
-        for f in files:
-            if any(f.lower().endswith(ext.lower()) for ext in VALID_EXT):
-                return True
-    return False
+class DirChangeHandler(FileSystemEventHandler):
+    def on_created(self, event):
+        if event.is_directory:
+            _get_all_dirs_cached.cache_clear()
 
-def get_dirs(base: str) -> list[str]:
-    directories = []
-    for root, dirs, _ in os.walk(base):
-        dirs[:] = [d for d in dirs if not d.endswith(".trickplay") and ".trickplay" not in root]
-        for d in dirs:
-            full_path = os.path.join(root, d)
-            if has_valid_files(full_path):
-                rel_path = os.path.relpath(full_path, base)
-                directories.append(rel_path.replace("\\", "/"))
-    return sorted(directories)
+    def on_deleted(self, event):
+        if event.is_directory:
+            _get_all_dirs_cached.cache_clear()
 
-@lru_cache(maxsize=1)
-def _get_all_dirs_cached() -> list[str]:
-    return get_dirs(BASE_PATH)
+    def on_moved(self, event):
+        if event.is_directory:
+            _get_all_dirs_cached.cache_clear()
+
+
+@app.on_event("startup")
+def start_fs_watcher():
+    handler = DirChangeHandler()
+    observer = Observer()
+    observer.schedule(handler, BASE_PATH, recursive=True)
+    observer.start()
+    app.state.fs_observer = observer
+
+
+@app.on_event("shutdown")
+def stop_fs_watcher():
+    observer = app.state.fs_observer
+    observer.stop()
+    observer.join()
+
 
 @app.get("/directories")
 def list_directories(
@@ -51,11 +60,13 @@ def list_directories(
 ):
     all_dirs = _get_all_dirs_cached()
 
+    # nach Serie filtern
     filtered = all_dirs
     if series:
         series_lc = series.lower()
         filtered = [d for d in filtered if series_lc in d.lower()]
 
+    # nach Staffel filtern
     if season is not None:
         season_str = f"{season:02d}"
         pattern = f"/season {season_str}"
@@ -66,10 +77,12 @@ def list_directories(
 
     return {"directories": filtered}
 
+
 @app.post("/directories/refresh")
 def refresh_directories():
     _get_all_dirs_cached.cache_clear()
     return {"status": "ok"}
+
 
 @app.post("/rename")
 async def rename(
@@ -87,7 +100,7 @@ async def rename(
             "success": False,
             "error": "Ordner nicht gefunden",
             "log": [],
-            "directories": get_dirs(BASE_PATH)
+            "directories": _get_all_dirs_cached()
         }
 
     logs, error = rename_episodes(
@@ -104,9 +117,9 @@ async def rename(
         "success": error is None,
         "error": error,
         "log": logs,
-        "directories": get_dirs(BASE_PATH)
+        "directories": _get_all_dirs_cached()
     }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", port=3333)
+    uvicorn.run("main:app", port=3332)
