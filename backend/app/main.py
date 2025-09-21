@@ -1,15 +1,12 @@
 from fastapi import FastAPI, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from functools import lru_cache
 import os
-import watchdog
-
-from rename_tmdb import rename_episodes
-
-# Watchdog imports
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+
+from rename_tmdb import rename_episodes
+from get_dirs import _get_all_dirs_cached 
 
 load_dotenv("dependencies/.env")
 
@@ -26,36 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def has_valid_files(path: str) -> bool:
-    for _, _, files in os.walk(path):
-        for f in files:
-            if any(f.lower().endswith(ext.lower()) for ext in VALID_EXT):
-                return True
-    return False
-
-def get_dirs(base: str) -> list[str]:
-    directories = []
-    for root, dirs, _ in os.walk(base):
-        dirs[:] = [
-            d for d in dirs
-            if not d.endswith(".trickplay") and ".trickplay" not in root
-        ]
-        for d in dirs:
-            full_path = os.path.join(root, d)
-            if has_valid_files(full_path):
-                rel_path = os.path.relpath(full_path, base)
-                directories.append(rel_path.replace("\\", "/"))
-    return sorted(directories)
-
-@lru_cache(maxsize=1)
-def _get_all_dirs_cached() -> list[str]:
-    return get_dirs(BASE_PATH)
-
-
 class DirChangeHandler(FileSystemEventHandler):
-    """
-    Invalidiert den Cache, sobald sich Ordner ändern.
-    """
     def on_created(self, event):
         if event.is_directory:
             _get_all_dirs_cached.cache_clear()
@@ -80,7 +48,7 @@ def start_fs_watcher():
 
 @app.on_event("shutdown")
 def stop_fs_watcher():
-    observer: Observer = app.state.fs_observer
+    observer = app.state.fs_observer
     observer.stop()
     observer.join()
 
@@ -132,7 +100,7 @@ async def rename(
             "success": False,
             "error": "Ordner nicht gefunden",
             "log": [],
-            "directories": get_dirs(BASE_PATH)
+            "directories": _get_all_dirs_cached()
         }
 
     logs, error = rename_episodes(
@@ -149,7 +117,7 @@ async def rename(
         "success": error is None,
         "error": error,
         "log": logs,
-        "directories": get_dirs(BASE_PATH)
+        "directories": _get_all_dirs_cached()
     }
 
 if __name__ == "__main__":

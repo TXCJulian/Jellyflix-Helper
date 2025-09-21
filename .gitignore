@@ -420,4 +420,6 @@ FodyWeavers.xsd
 #extensions
 *.env
 *.venv
+frontend/*.vscode
+backend/*.vscode
 *.vscode

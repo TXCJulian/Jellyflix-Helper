@@ -58,7 +58,7 @@
     </form>
 
     <div v-if="log.length" class="log-container">
-      <h3>Log</h3>
+      <h3 v-if="false">Log</h3>
       <pre>{{ log.join('\n') }}</pre>
     </div>
 
