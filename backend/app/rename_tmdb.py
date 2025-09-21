@@ -19,13 +19,15 @@ def de_translit(s: str) -> str:
     s = s.replace("Ä", "Ae").replace("Ö", "Oe").replace("Ü", "Ue")
     return s
 
-def normalize_text(s: str) -> str:
-    #s = os.path.splitext(s)[0]
-    s = re.sub(r"(?i)s\d{1,2}e\d{1,2}", " ", s)  # SxxExx entfernen
+def normalize_string(s: str) -> str:
+    base, ext = os.path.splitext(s)
+    if ext.lower() in VALID_EXT:
+        s = base
+    s = re.sub(r"(?i)s\d{1,2}e\d{1,2}", " ", s)
     s = strip_accents(s)
     s = de_translit(s)
     s = s.lower()
-    s = re.sub(r"[^a-z0-9]+", " ", s)  # Sonderzeichen → Leerzeichen
+    s = re.sub(r"[^a-z0-9\.]+", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
@@ -92,7 +94,7 @@ def rename_episodes(
     try:
         season_eps = tmdb_get_season(show_id, season, lang)
     except Exception as e:
-        return logs, f"Fehler beim Abrufen der Staffel: {e}"
+        return logs, f"Staffel {season} der Serie '{series}' nicht gefunden"
 
     remaining = []
     for ep in season_eps:
@@ -101,7 +103,7 @@ def rename_episodes(
         remaining.append({
             "num": num,
             "title": title,
-            "title_norm": normalize_text(title),
+            "title_norm": normalize_string(title),
         })
 
     files = [f for f in os.listdir(directory) if os.path.splitext(f)[1].lower() in VALID_EXT]
@@ -111,7 +113,7 @@ def rename_episodes(
     unused = remaining[:]
 
     for f in files:
-        n = normalize_text(f)
+        n = normalize_string(f)
         best_idx, best_score = best_match(n, [e["title_norm"] for e in unused])
         if best_idx >= 0 and best_score >= threshold:
             ep = unused.pop(best_idx)
@@ -128,7 +130,7 @@ def rename_episodes(
 
     for f, num, title, score in assignments:
         if num is None:
-            logs.append(f"[SKIP  ] {f}  (kein sicherer Match; score={score:.2f})")
+            logs.append(f"[ SKIP ]\t'{f}' kein sicherer Match (score={score:.2f})")
             continue
         ext = os.path.splitext(f)[1]
         safe_title = clean_filename(title)
@@ -137,7 +139,7 @@ def rename_episodes(
         dst = os.path.join(directory, new_name)
 
         if os.path.abspath(src) == os.path.abspath(dst):
-            logs.append(f"[OK    ] {f} bleibt {new_name} (bereits korrekt)")
+            logs.append(f"[  OK  ]\t'{f}' bereits korrekt")
         else:
             if os.path.exists(dst):
                 base, ext2 = os.path.splitext(dst)
@@ -148,7 +150,7 @@ def rename_episodes(
                         dst = cand
                         break
                     k += 1
-            logs.append(f"[RENAME] {f} -> {os.path.basename(dst)}  (match={score:.2f})")
+            logs.append(f"[RENAME]\t'{f}' -> {os.path.basename(dst)}  (match={score:.2f})")
             if not dry_run:
                 os.rename(src, dst)
                 old_nfo = os.path.splitext(src)[0] + ".nfo"
@@ -156,6 +158,6 @@ def rename_episodes(
                     try:
                         os.remove(old_nfo)
                     except Exception as e:
-                        logs.append(f"         [!] .nfo löschen fehlgeschlagen: {e}")
+                        logs.append(f"\t[!] .nfo löschen fehlgeschlagen: {e}")
 
     return logs, None

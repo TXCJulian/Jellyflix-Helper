@@ -6,59 +6,31 @@ body,
 html {
   font-family: Arial, sans-serif;
   margin: 0;
-  padding: 0;
+  padding: 25px;
   background-color: #121212;
   color: #e0e0e0;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   font-size: 16px;
+  height: 100%;
 }
 
-@media (max-width: 575.98px) {
+body {
+  padding: 0
+}
 
-  .form-container,
-  .log-container {
-    padding: 12px;
-    font-size: 0.85rem;
+@media (min-width: 1000px) {
+  .app {
+    min-width: 1000px;
   }
 }
-
-@media (min-width: 576px) and (max-width: 767.98px) {
-
-  .form-container,
-  .log-container {
-    padding: 15px;
-    font-size: 0.9rem;
-  }
-}
-
-@media (min-width: 768px) and (max-width: 991.98px) {
-
-  .form-container,
-  .log-container {
-    padding: 18px;
-    font-size: 1rem;
-  }
-}
-
-@media (min-width: 992px) and (max-width: 1199.98px) {
-  #app {
-    max-width: 900px;
-  }
-}
-
-@media (min-width: 1200px) {
-  #app {
-    max-width: 1000px;
-  }
-}
-
 
 h1 {
   color: #fff;
   text-align: center;
   margin-top: 0;
+  margin-bottom: 25px;
 }
 
 label {
@@ -102,7 +74,7 @@ button:hover {
 
 pre {
   width: 100%;
-  color: #4CBB17;
+  color: #0f0;
   border: none;
   overflow-y: auto;
   padding: 15px;
