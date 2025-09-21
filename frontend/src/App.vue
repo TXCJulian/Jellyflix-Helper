@@ -15,13 +15,15 @@
 
       <div>
         <label for="directory">Verzeichnis:</label>
-        <select id="directory" v-model="form.directory" required>
+        <select id="directory" v-model="form.directory" :disabled="isLoadingDirs || isRenaming" required>
           <option v-for="dir in directories" :key="dir" :value="dir">
             {{ dir }}
           </option>
         </select>
-        <button type="button" @click="refreshDirectories">
-          Verzeichnisse neu laden
+
+        <button type="button" @click="refreshDirectories" :disabled="isLoadingDirs || isRenaming" class="btn-refresh">
+          <span v-if="isLoadingDirs" class="loader-sm"></span>
+          <span v-else>Verzeichnisse neu laden</span>
         </button>
       </div>
 
@@ -48,7 +50,10 @@
       </div>
 
       <div>
-        <button type="submit">Umbenennen</button>
+        <button type="submit" :disabled="isRenaming || isLoadingDirs" class="btn-rename">
+          <span v-if="isRenaming" class="loader"></span>
+          <span v-else>Umbenennen</span>
+        </button>
       </div>
     </form>
 
@@ -73,23 +78,24 @@ export default {
       directories: [],
       form: {
         series: "",
-        season: 1,          // Default-Staffel 1
+        season: 1,
         directory: "",
         dry_run: true,
         assign_seq: false,
-        threshold: 0.6,
+        threshold: 0.75,
         lang: "de",
       },
       log: [],
       error: "",
+      isLoadingDirs: false,
+      isRenaming: false,
     };
   },
   created() {
     this.debouncedFetch = debounce(this.fetchDirectories, 300);
   },
   mounted() {
-    -   this.fetchDirectories();
-    +   this.fetchDirectories(this.form.series, this.form.season);
+    this.fetchDirectories(this.form.series, this.form.season);
   },
   watch: {
     "form.series"(newSeries) {
@@ -99,9 +105,11 @@ export default {
       this.debouncedFetch(this.form.series, newSeason);
     },
   },
-  methods:
-  {
+  methods: {
     async fetchDirectories(series = "", season = null) {
+      this.isLoadingDirs = true;
+      this.error = "";
+
       const url = new URL("http://localhost:3333/directories");
       if (series) url.searchParams.set("series", series);
       if (season !== null && season !== "") {
@@ -120,51 +128,54 @@ export default {
         ) {
           this.form.directory = this.directories[0];
         }
-      }
-      catch {
+      } catch {
         this.error = "Fehler beim Laden der Verzeichnisse";
+      } finally {
+        this.isLoadingDirs = false;
       }
     },
 
-
-    refreshDirectories() {
-      fetch("http://localhost:3333/directories/refresh", {
-        method: "POST",
-      })
-        .then(() => {
-          -         this.fetchDirectories(this.form.series);
-          +         this.fetchDirectories(this.form.series, this.form.season);
-        })
-        .catch(() => {
-          this.error = "Fehler beim Aktualisieren der Verzeichnisse";
-        });
-    },
-
-    submitRename() {
-      this.log = [];
+    async refreshDirectories() {
+      this.isLoadingDirs = true;
       this.error = "";
 
-      const formData = new FormData();
-      Object.entries(this.form).forEach(([key, val]) => {
-        formData.append(key, val);
-      });
-
-      fetch("http://localhost:3333/rename", {
-        method: "POST",
-        body: formData,
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) this.error = data.error;
-          this.log = data.log || [];
-
-          if (data.directories) {
-            this.directories = data.directories;
-          }
-        })
-        .catch(() => {
-          this.error = "Fehler beim Umbenennen.";
+      try {
+        await fetch("http://localhost:3333/directories/refresh", {
+          method: "POST",
         });
+        await this.fetchDirectories(this.form.series, this.form.season);
+      } catch {
+        this.error = "Fehler beim Aktualisieren der Verzeichnisse";
+      } finally {
+        this.isLoadingDirs = false;
+      }
+    },
+
+    async submitRename() {
+      this.isRenaming = true;
+      this.error = "";
+      this.log = [];
+
+      const formData = new FormData();
+      Object.entries(this.form).forEach(([key, val]) =>
+        formData.append(key, val)
+      );
+
+      try {
+        const res = await fetch("http://localhost:3333/rename", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+
+        if (data.error) this.error = data.error;
+        this.log = data.log || [];
+        if (data.directories) this.directories = data.directories;
+      } catch {
+        this.error = "Fehler beim Umbenennen.";
+      } finally {
+        this.isRenaming = false;
+      }
     },
   },
 };

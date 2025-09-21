@@ -3,9 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from functools import lru_cache
 import os
-import re
+import watchdog
 
 from rename_tmdb import rename_episodes
+
+# Watchdog imports
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 load_dotenv("dependencies/.env")
 
@@ -32,7 +36,10 @@ def has_valid_files(path: str) -> bool:
 def get_dirs(base: str) -> list[str]:
     directories = []
     for root, dirs, _ in os.walk(base):
-        dirs[:] = [d for d in dirs if not d.endswith(".trickplay") and ".trickplay" not in root]
+        dirs[:] = [
+            d for d in dirs
+            if not d.endswith(".trickplay") and ".trickplay" not in root
+        ]
         for d in dirs:
             full_path = os.path.join(root, d)
             if has_valid_files(full_path):
@@ -44,6 +51,40 @@ def get_dirs(base: str) -> list[str]:
 def _get_all_dirs_cached() -> list[str]:
     return get_dirs(BASE_PATH)
 
+
+class DirChangeHandler(FileSystemEventHandler):
+    """
+    Invalidiert den Cache, sobald sich Ordner ändern.
+    """
+    def on_created(self, event):
+        if event.is_directory:
+            _get_all_dirs_cached.cache_clear()
+
+    def on_deleted(self, event):
+        if event.is_directory:
+            _get_all_dirs_cached.cache_clear()
+
+    def on_moved(self, event):
+        if event.is_directory:
+            _get_all_dirs_cached.cache_clear()
+
+
+@app.on_event("startup")
+def start_fs_watcher():
+    handler = DirChangeHandler()
+    observer = Observer()
+    observer.schedule(handler, BASE_PATH, recursive=True)
+    observer.start()
+    app.state.fs_observer = observer
+
+
+@app.on_event("shutdown")
+def stop_fs_watcher():
+    observer: Observer = app.state.fs_observer
+    observer.stop()
+    observer.join()
+
+
 @app.get("/directories")
 def list_directories(
     series: str | None = Query(None, description="Optionaler Serienfilter"),
@@ -51,11 +92,13 @@ def list_directories(
 ):
     all_dirs = _get_all_dirs_cached()
 
+    # nach Serie filtern
     filtered = all_dirs
     if series:
         series_lc = series.lower()
         filtered = [d for d in filtered if series_lc in d.lower()]
 
+    # nach Staffel filtern
     if season is not None:
         season_str = f"{season:02d}"
         pattern = f"/season {season_str}"
@@ -66,10 +109,12 @@ def list_directories(
 
     return {"directories": filtered}
 
+
 @app.post("/directories/refresh")
 def refresh_directories():
     _get_all_dirs_cached.cache_clear()
     return {"status": "ok"}
+
 
 @app.post("/rename")
 async def rename(
