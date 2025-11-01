@@ -1,0 +1,82 @@
+name: episode_renamer
+services:
+  renamer-backend:
+    cpu_shares: 90
+    command: []
+    container_name: episode-renamer_backend
+    deploy:
+      resources:
+        limits:
+          memory: 15391M
+    environment:
+      - BASE_PATH=/media
+      - TVSHOW_FOLDER_NAME=TV Shows
+      - MUSIC_FOLDER_NAME=Music
+      - TMDB_API_KEY=YOUR_TMDB_API_KEY_HERE
+      - VALID_VIDEO_EXT={'.mp4', '.mkv', '.mov', '.avi'}
+      - VALID_MUSIC_EXT={'.flac', '.wav', '.mp3'}
+    hostname: episode-renamer_backend
+    image: bosscock/episode-renamer:backend
+    labels:
+      icon: https://icon.casaos.io/main/all/renamer-backend.png
+    ports:
+      - target: 3332
+        published: "3332"
+        protocol: tcp
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /path/to/your/media
+        target: /media
+    devices: []
+    cap_add: []
+    networks:
+      - renamer-network
+    privileged: false
+
+  renamer-frontend:
+    cpu_shares: 90
+    command: []
+    container_name: episode-renamer_frontend
+    depends_on:
+      renamer-backend:
+        condition: service_started
+        required: true
+    deploy:
+      resources:
+        limits:
+          memory: 15391M
+    hostname: episode-renamer_frontend
+    image: bosscock/episode-renamer:frontend
+    labels:
+      icon: https://icon.casaos.io/main/all/renamer-backend.png
+    ports:
+      - target: 3000
+        published: "3333"
+        protocol: tcp
+    restart: unless-stopped
+    volumes: []
+    devices: []
+    cap_add: []
+    environment: []
+    networks:
+      - renamer-network
+    privileged: false
+
+networks:
+  renamer-network:
+    driver: bridge
+
+x-casaos:
+  author: self
+  category: self
+  hostname: ""
+  icon: https://icon.casaos.io/main/all/renamer-backend.png
+  index: /
+  is_uncontrolled: false
+  port_map: "3333"
+  scheme: http
+  store_app_id: episode_renamer
+  title:
+    custom: episode-renamer
+    en_us: Episode Renamer
