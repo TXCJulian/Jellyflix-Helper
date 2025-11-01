@@ -9,8 +9,7 @@ from dotenv import load_dotenv
 load_dotenv("dependencies/.env")
 
 API_KEY = os.getenv("TMDB_API_KEY")
-# Gültige Video-Endungen aus .env laden (Python-Set-Syntax erwartet)
-VALID_VIDEO_EXT = set(eval(os.getenv("VALID_VIDEO_EXT", "{'.mp4', '.mkv', '.mov', '.avi'}")))
+VALID_EXT = os.getenv("VALID_EXT")
 
 def strip_accents(s: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
@@ -22,7 +21,7 @@ def de_translit(s: str) -> str:
 
 def normalize_string(s: str) -> str:
     base, ext = os.path.splitext(s)
-    if ext.lower() in VALID_VIDEO_EXT:
+    if ext.lower() in VALID_EXT:
         s = base
     s = re.sub(r"(?i)s\d{1,2}e\d{1,2}", " ", s)
     s = strip_accents(s)
@@ -107,7 +106,7 @@ def rename_episodes(
             "title_norm": normalize_string(title),
         })
 
-    files = [f for f in os.listdir(directory) if os.path.splitext(f)[1].lower() in VALID_VIDEO_EXT]
+    files = [f for f in os.listdir(directory) if os.path.splitext(f)[1].lower() in VALID_EXT]
     files.sort()
 
     assignments = []
