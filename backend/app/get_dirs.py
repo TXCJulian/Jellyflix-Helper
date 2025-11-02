@@ -4,17 +4,20 @@ from functools import lru_cache
 
 load_dotenv("dependencies/.env")
 
-BASE_PATH = os.getenv("BASE_PATH")
-VALID_EXT = set(eval(os.getenv("VALID_EXT", "{}")))
+BASE_PATH = os.getenv("BASE_PATH") or "/media"
+TVSHOW_FOLDER_NAME = os.getenv("TVSHOW_FOLDER_NAME") or "TV Shows"
+MUSIC_FOLDER_NAME = os.getenv("MUSIC_FOLDER_NAME") or "Music"
+VALID_VIDEO_EXT = set(eval(os.getenv("VALID_VIDEO_EXT", "{}")))
+VALID_MUSIC_EXT = set(eval(os.getenv("VALID_MUSIC_EXT", "{}")))
 
-def has_valid_files(path: str) -> bool:
+def has_valid_files(path: str, extensions: set) -> bool:
     for _, _, files in os.walk(path):
         for f in files:
-            if any(f.lower().endswith(ext.lower()) for ext in VALID_EXT):
+            if any(f.lower().endswith(ext.lower()) for ext in extensions):
                 return True
     return False
 
-def get_dirs(base: str) -> list[str]:
+def get_dirs(base: str, extensions: set) -> list[str]:
     directories = []
     for root, dirs, _ in os.walk(base):
         dirs[:] = [
@@ -23,11 +26,29 @@ def get_dirs(base: str) -> list[str]:
         ]
         for d in dirs:
             full_path = os.path.join(root, d)
-            if has_valid_files(full_path):
+            if has_valid_files(full_path, extensions):
                 rel_path = os.path.relpath(full_path, base)
                 directories.append(rel_path.replace("\\", "/"))
     return sorted(directories)
 
+def get_tvshow_dirs() -> list[str]:
+    """Suche nach TV-Show-Verzeichnissen: /BASE_PATH/TVSHOW_FOLDER_NAME/Serienname/Season XX/"""
+    tvshow_base = os.path.join(BASE_PATH, TVSHOW_FOLDER_NAME)
+    if not os.path.isdir(tvshow_base):
+        return []
+    return get_dirs(tvshow_base, VALID_VIDEO_EXT)
+
+def get_music_dirs() -> list[str]:
+    """Suche nach Musik-Verzeichnissen: /BASE_PATH/MUSIC_FOLDER_NAME/Künstlername/Album/"""
+    music_base = os.path.join(BASE_PATH, MUSIC_FOLDER_NAME)
+    if not os.path.isdir(music_base):
+        return []
+    return get_dirs(music_base, VALID_MUSIC_EXT)
+
 @lru_cache(maxsize=1)
 def _get_all_dirs_cached() -> list[str]:
-    return get_dirs(BASE_PATH)
+    return get_tvshow_dirs()
+
+@lru_cache(maxsize=1)
+def _get_music_dirs_cached() -> list[str]:
+    return get_music_dirs()
