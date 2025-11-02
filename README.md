@@ -4,57 +4,52 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Vue.js](https://img.shields.io/badge/Vue.js-4FC08D?style=flat&logo=vue.js&logoColor=white)](https://vuejs.org/)
 
-**Ein automatisches Umbenennungstool für TV-Serien und Musik-Dateien mit einer benutzerfreundlichen Web-Oberfläche.**  
 *An automatic renaming tool for TV shows and music files with a user-friendly web interface.*
 
-## 📋 Inhaltsverzeichnis / Table of Contents
+## Table of Contents
 
-- [Überblick / Overview](#-überblick--overview)
-- [Features](#-features)
-- [Architektur / Architecture](#-architektur--architecture)
-- [Voraussetzungen / Prerequisites](#-voraussetzungen--prerequisites)
-- [Installation](#-installation)
-- [Konfiguration / Configuration](#-konfiguration--configuration)
-- [API-Endpoints](#-api-endpoints)
-- [Deployment](#-deployment)
-- [Entwicklung / Development](#-entwicklung--development)
-- [Fehlerbehebung / Troubleshooting](#-fehlerbehebung--troubleshooting)
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [API Endpoints](#api-endpoints)
+- [Deployment](#deployment)
+- [Development](#development)
+- [Troubleshooting](#troubleshooting)
 
-## 📖 Überblick / Overview
+## Overview
 
-**Deutsch:**  
-Jellyflix Helper ist ein dockerisiertes Tool, das TV-Serien-Episoden und Musik-Dateien automatisch nach einem standardisierten Schema umbenennt. Es nutzt die TMDB-API für TV-Serien-Metadaten und Mutagen für Musik-Tags. Die Anwendung besteht aus einem FastAPI-Backend (Python) und einem Vue 3-Frontend (Vite, Nginx), die über ein Docker-Netzwerk kommunizieren.
-
-**English:**  
 Jellyflix Helper is a dockerized tool that automatically renames TV show episodes and music files according to a standardized schema. It uses the TMDB API for TV series metadata and Mutagen for music tags. The application consists of a FastAPI backend (Python) and a Vue 3 frontend (Vite, Nginx), which communicate over a Docker network.
 
-## ✨ Features
+## Features
 
-### TV-Serien / TV Shows
-- 🔍 **Automatische Seriensuche** über TMDB-API (mehrsprachig)
-- 📺 **Episoden-Umbenennung** nach dem Schema: `S01E01 - Episodentitel.ext`
-- 🎯 **Intelligentes Matching** von Dateinamen zu TMDB-Episoden
-- 🌐 **Mehrsprachige Unterstützung** (Deutsch, Englisch, Französisch, etc.)
-- 📁 **Batch-Verarbeitung** ganzer Staffeln auf einmal
-- ✅ **Vorschau** vor der Umbenennung
+### TV Shows
+- 🔍 **Automatic series search** via TMDB API (multi-language)
+- 📺 **Episode renaming** according to the schema: `S01E01 - Episode title.ext`
+- 🎯 **Intelligent matching** of filenames to TMDB episodes
+- 🌐 **Multi-language support** (German, English, French, etc.)
+- 📁 **Batch processing** of entire seasons at once
+- ✅ **Preview** before renaming
 
-### Musik / Music
-- 🎵 **Metadata-basierte Umbenennung** aus ID3-Tags, FLAC-Tags, etc.
-- 🎼 **Unterstützte Formate**: FLAC, WAV, MP3, OGG Vorbis, OGG Opus, AIFF, ASF, Musepack
-- 🔤 **Umlaute-Normalisierung** für Kompatibilität
-- 📋 **Schema**: `Tracknr - Künstler - Titel.ext`
-- 🎹 **Künstler- und Album-Filter** in der Benutzeroberfläche
+### Music
+- 🎵 **Metadata-based renaming** from ID3 tags, FLAC tags, etc.
+- 🎼 **Supported formats**: FLAC, WAV, MP3, OGG Vorbis, OGG Opus, AIFF, ASF, Musepack
+- 🔤 **Umlaut normalization** for compatibility
+- 📋 **Schema**: `Tracknr - Artist - Title.ext`
+- 🎹 **Artist and album filters** in the user interface
 
-### Allgemein / General
-- 🖥️ **Moderne Web-Oberfläche** mit Vue 3
-- 🐳 **Vollständig dockerisiert** mit Docker Compose
-- 🔄 **Echtzeit-Updates** der Verzeichnisliste
-- 🚀 **Reverse Proxy** mit Nginx (keine CORS-Probleme)
-- 📊 **File System Monitoring** mit Watchdog
+### General
+- 🖥️ **Modern web interface** with Vue 3
+- 🐳 **Fully dockerized** with Docker Compose
+- 🔄 **Real-time updates** of directory list
+- 🚀 **Reverse proxy** with Nginx (no CORS issues)
+- 📊 **File system monitoring** with Watchdog
 
-## 🏗️ Architektur / Architecture
+## Architecture
 
-### Technologie-Stack / Technology Stack
+### Technology Stack
 
 **Backend:**
 - Python 3.12 (LTS)
@@ -73,70 +68,70 @@ Jellyflix Helper is a dockerized tool that automatically renames TV show episode
 **Infrastructure:**
 - Docker + Docker Compose
 - Multi-stage Docker Builds
-- Bridge Network für Service-Kommunikation
+- Bridge Network for service communication
 
-## 🔧 Voraussetzungen / Prerequisites
+## Prerequisites
 
-- **Docker** (Version 20.10 oder höher / 20.10 or higher)
-- **Docker Compose** (Version 2.0 oder höher / 2.0 or higher)
-- **TMDB API Key** ([kostenlos erhältlich / free at](https://www.themoviedb.org/settings/api))
-- **Medien-Verzeichnis** mit entsprechenden Berechtigungen
+- **Docker** (Version 20.10 or higher)
+- **Docker Compose** (Version 2.0 or higher)
+- **TMDB API Key** ([free at](https://www.themoviedb.org/settings/api))
+- **Media directory** with appropriate permissions
 
-## 🚀 Installation
+## Installation
 
-### Schritt 1: Repository klonen / Clone Repository
+### Step 1: Clone Repository
 
 ```bash
 git clone https://github.com/TXCJulian/Jellyflix-Helper.git
 cd Jellyflix-Helper
 ```
 
-### Schritt 2: TMDB API Key besorgen / Get TMDB API Key
+### Step 2: Get TMDB API Key
 
-1. Registriere dich auf [themoviedb.org](https://www.themoviedb.org/)
-2. Gehe zu Einstellungen → API
-3. Beantrage einen API Key (kostenlos)
-4. Kopiere deinen API Key
+1. Register on [themoviedb.org](https://www.themoviedb.org/)
+2. Go to Settings → API
+3. Request an API Key (free)
+4. Copy your API Key
 
-### Schritt 3: Konfiguration anpassen / Adjust Configuration
+### Step 3: Adjust Configuration
 
-Bearbeite die `docker-compose.yml` und passe folgende Werte an:
+Edit the `docker-compose.yml` and adjust the following values:
 
 ```yaml
 environment:
-  - TMDB_API_KEY=DEIN_TMDB_API_KEY_HIER  # Dein API Key
+  - TMDB_API_KEY=YOUR_TMDB_API_KEY_HERE  # Your API Key
 volumes:
-  - /pfad/zu/deinen/medien:/media:rw  # Dein Medien-Pfad
+  - /path/to/your/media:/media:rw  # Your media path
 ```
 
-### Schritt 4: Container starten / Start Containers
+### Step 4: Start Containers
 
 ```powershell
 docker compose up --build
 ```
 
-### Schritt 5: Anwendung öffnen / Open Application
+### Step 5: Open Application
 
 - **Frontend**: http://localhost:3333
 - **Backend API**: http://localhost:3332
-- **API Dokumentation**: http://localhost:3332/docs
+- **API Documentation**: http://localhost:3332/docs
 
-## ⚙️ Konfiguration / Configuration
+## Configuration
 
-### Backend-Umgebungsvariablen / Backend Environment Variables
+### Backend Environment Variables
 
-| Variable | Beschreibung | Standard | Beispiel |
-|----------|--------------|----------|----------|
-| `BASE_PATH` | Basis-Pfad zu den Medien im Container | `/media` | `/media` |
-| `TVSHOW_FOLDER_NAME` | Name des TV-Serien-Ordners | `TV Shows` | `TV Shows` |
-| `MUSIC_FOLDER_NAME` | Name des Musik-Ordners | `Music` | `Music` |
-| `TMDB_API_KEY` | TMDB API Schlüssel (erforderlich) | - | `abc123...` |
-| `VALID_VIDEO_EXT` | Gültige Video-Dateierweiterungen | `{'.mp4', '.mkv', '.mov', '.avi'}` | - |
-| `VALID_MUSIC_EXT` | Gültige Musik-Dateierweiterungen | `{'.flac', '.wav', '.mp3'}` | - |
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `BASE_PATH` | Base path to media in container | `/media` | `/media` |
+| `TVSHOW_FOLDER_NAME` | Name of TV shows folder | `TV Shows` | `TV Shows` |
+| `MUSIC_FOLDER_NAME` | Name of music folder | `Music` | `Music` |
+| `TMDB_API_KEY` | TMDB API key (required) | - | `abc123...` |
+| `VALID_VIDEO_EXT` | Valid video file extensions | `{'.mp4', '.mkv', '.mov', '.avi'}` | - |
+| `VALID_MUSIC_EXT` | Valid music file extensions | `{'.flac', '.wav', '.mp3'}` | - |
 
-### Verzeichnisstruktur / Directory Structure
+### Directory Structure
 
-Die Anwendung erwartet folgende Struktur in deinem Medien-Verzeichnis:
+The application expects the following structure in your media directory:
 
 ```
 /media/
@@ -159,18 +154,18 @@ Die Anwendung erwartet folgende Struktur in deinem Medien-Verzeichnis:
     └── ...
 ```
 
-## 📡 API-Endpoints
+## API Endpoints
 
-### TV-Serien / TV Shows
+### TV Shows
 
 #### `GET /directories/tvshows`
-Liste alle TV-Serien-Verzeichnisse auf / List all TV show directories
+List all TV show directories
 
-**Query Parameter:**
-- `series` (optional): Filter nach Serienname
-- `season` (optional): Filter nach Staffelnummer
+**Query Parameters:**
+- `series` (optional): Filter by series name
+- `season` (optional): Filter by season number
 
-**Beispiel / Example:**
+**Example:**
 ```bash
 curl "http://localhost:3332/directories/tvshows?series=Breaking%20Bad&season=1"
 ```
@@ -185,16 +180,16 @@ curl "http://localhost:3332/directories/tvshows?series=Breaking%20Bad&season=1"
 ```
 
 #### `POST /rename/episodes`
-Benenne Episoden in einem Verzeichnis um / Rename episodes in a directory
+Rename episodes in a directory
 
 **Form Data:**
-- `directory`: Pfad zum Staffel-Verzeichnis
-- `series`: Serienname
-- `season`: Staffelnummer (1-99)
-- `language`: Sprache für TMDB (de-DE, en-US, etc.)
-- `preview` (optional): "true" für Vorschau ohne Umbenennung
+- `directory`: Path to season directory
+- `series`: Series name
+- `season`: Season number (1-99)
+- `language`: Language for TMDB (de-DE, en-US, etc.)
+- `preview` (optional): "true" for preview without renaming
 
-**Beispiel / Example:**
+**Example:**
 ```bash
 curl -X POST "http://localhost:3332/rename/episodes" \
   -F "directory=/media/TV Shows/Breaking Bad/Season 01" \
@@ -216,41 +211,41 @@ curl -X POST "http://localhost:3332/rename/episodes" \
 }
 ```
 
-### Musik / Music
+### Music
 
 #### `GET /directories/music`
-Liste alle Musik-Verzeichnisse auf / List all music directories
+List all music directories
 
-**Query Parameter:**
-- `artist` (optional): Filter nach Künstler
-- `album` (optional): Filter nach Album
+**Query Parameters:**
+- `artist` (optional): Filter by artist
+- `album` (optional): Filter by album
 
-**Beispiel / Example:**
+**Example:**
 ```bash
 curl "http://localhost:3332/directories/music?artist=Pink%20Floyd"
 ```
 
 #### `POST /rename/music`
-Benenne Musik-Dateien um / Rename music files
+Rename music files
 
 **Form Data:**
-- `directory`: Pfad zum Album-Verzeichnis
-- `preview` (optional): "true" für Vorschau ohne Umbenennung
+- `directory`: Path to album directory
+- `preview` (optional): "true" for preview without renaming
 
-**Beispiel / Example:**
+**Example:**
 ```bash
 curl -X POST "http://localhost:3332/rename/music" \
   -F "directory=/media/Music/Pink Floyd/The Wall" \
   -F "preview=false"
 ```
 
-## 🏗️ Architektur / Architecture
+## Architecture
 
-### Überblick / Overview
+### Overview
 
-Das Projekt nutzt einen Nginx Reverse Proxy im Frontend-Container, um Backend-API-Anfragen transparent weiterzuleiten. Der Browser kommuniziert nur mit einem Port (3333), und Nginx routet die Anfragen intern zum Backend.
+The project uses an Nginx reverse proxy in the frontend container to transparently forward backend API requests. The browser communicates only with one port (3333), and Nginx routes the requests internally to the backend.
 
-### Request Flow / Anfrage-Ablauf
+### Request Flow
 
 ```
 Browser                    Frontend Container               Backend Container
@@ -266,7 +261,7 @@ Browser                    Frontend Container               Backend Container
   |<--[4] JSON response-----------|                                  |
 ```
 
-**Schritt für Schritt / Step by Step:**
+**Step by Step:**
 
 1. Browser → Frontend (port 3333)  
    The browser loads the Vue app from `http://your-server:3333` and makes API calls like:
@@ -294,80 +289,80 @@ Browser                    Frontend Container               Backend Container
 
 ### Benefits of this architecture
 
-✅ No CORS issues: from the browser’s perspective, all requests are same-origin  
+✅ No CORS issues: from the browser's perspective, all requests are same-origin  
 ✅ Single entry point: only port 3333 needs to be exposed  
-✅ Backend can stay private: port 3332 doesn’t have to be published  
+✅ Backend can stay private: port 3332 doesn't have to be published  
 ✅ Simple SSL termination: HTTPS only at Nginx  
 ✅ Standard production pattern: API gateway in front of microservices
 
-### Wichtige Hinweise / Important Notes
+### Important Notes
 
-- Der Browser kommuniziert nicht direkt mit dem Backend — nur mit Port 3333
-- `helper-backend` ist nur innerhalb des Docker-Netzwerks auflösbar
-- Die Frontend `.env` ist leer (`VITE_API_BASE_URL=""`), die App nutzt `window.location.origin` als Basis-URL
+- The browser does not communicate directly with the backend — only with port 3333
+- `helper-backend` is only resolvable within the Docker network
+- The frontend `.env` is empty (`VITE_API_BASE_URL=""`), the app uses `window.location.origin` as the base URL
 
-> **⚠️ Achtung / Warning:**  
-> Wenn du Service-Namen in `docker-compose.yml` oder `deploy.yml` änderst (z.B. `helper-backend` → `my-backend`), musst du diese auch in der Nginx-Konfiguration (`frontend/nginx-app.conf`) in den `proxy_pass`-Zeilen anpassen!
+> **⚠️ Warning:**  
+> If you change service names in `docker-compose.yml` or `deploy.yml` (e.g., `helper-backend` → `my-backend`), you must also adjust them in the Nginx configuration (`frontend/nginx-app.conf`) in the `proxy_pass` lines!
 
-### Wichtige Dateien / Important Files
+### Important Files
 
-| Datei / File | Beschreibung / Description |
-|--------------|---------------------------|
-| `docker-compose.yml` | Lokales Setup, Build-Kontexte, Netzwerk |
-| `deploy.yml` | Deployment-Vorlage mit vorgebauten Images |
-| `frontend/nginx-app.conf` | Nginx Reverse Proxy Konfiguration (API-Routing) |
-| `frontend/.env` | API Base URL (leer = same-origin via Nginx) |
-| `backend/Dockerfile` | Python 3.12 Multi-Stage Build |
-| `frontend/Dockerfile` | Node 20 Multi-Stage Build mit Nginx Runtime |
-| `backend/requirements.txt` | Python-Dependencies |
-| `frontend/package.json` | Node-Dependencies |
+| File | Description |
+|------|-------------|
+| `docker-compose.yml` | Local setup, build contexts, network |
+| `deploy.yml` | Deployment template with pre-built images |
+| `frontend/nginx-app.conf` | Nginx reverse proxy configuration (API routing) |
+| `frontend/.env` | API base URL (empty = same-origin via Nginx) |
+| `backend/Dockerfile` | Python 3.12 multi-stage build |
+| `frontend/Dockerfile` | Node 20 multi-stage build with Nginx runtime |
+| `backend/requirements.txt` | Python dependencies |
+| `frontend/package.json` | Node dependencies |
 
-## 🚢 Deployment
+## Deployment
 
-### Lokale Entwicklung / Local Development
+### Local Development
 
-Für lokale Entwicklung mit Hot-Reload:
+For local development with hot-reload:
 
 ```powershell
-# Backend (mit Auto-Reload)
+# Backend (with auto-reload)
 cd backend
 pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 3332
 
-# Frontend (Dev-Server)
+# Frontend (dev server)
 cd frontend
 npm install
 npm run dev
 ```
 
-### Produktion mit Docker Compose / Production with Docker Compose
+### Production with Docker Compose
 
-Verwende `deploy.yml` als Vorlage für Server-Deployment:
+Use `deploy.yml` as a template for server deployment:
 
 ```powershell
-# Images von Docker Hub pullen
+# Pull images from Docker Hub
 docker compose -f deploy.yml pull
 
-# Container starten
+# Start containers
 docker compose -f deploy.yml up -d
 
-# Logs ansehen
+# View logs
 docker compose -f deploy.yml logs -f
 
-# Container stoppen
+# Stop containers
 docker compose -f deploy.yml down
 ```
 
-**Wichtig:** Passe in `deploy.yml` die Volumes und Umgebungsvariablen an deine Umgebung an!
+**Important:** Adjust the volumes and environment variables in `deploy.yml` to your environment!
 
-## 🐳 Docker Images auf Docker Hub veröffentlichen / Push Images to Docker Hub
+## Push Images to Docker Hub
 
-Die compose/deploy files erwarten folgende Images:
+The compose/deploy files expect the following images:
 
 - `bosscock/jellyflix-helper:backend`
 - `bosscock/jellyflix-helper:frontend`
 
-**Wenn dein Docker Hub Username nicht `bosscock` ist**, ersetze ihn in den Befehlen unten und in `deploy.yml`/`docker-compose.yml`.
+**If you want to push the Images to your own Docker-Repository**, replace `bosscock` it in the commands below and in `deploy.yml`/`docker-compose.yml`.
 
 ### 1) Log in to Docker Hub
 
@@ -438,50 +433,50 @@ docker compose -f deploy.yml pull
 docker compose -f deploy.yml up -d
 ```
 
-**Hinweis:** Wenn du ein eigenes Netzwerk verwenden möchtest (z.B. `helper-network`), füge einen `networks`-Abschnitt zu `deploy.yml` hinzu und verbinde beide Services damit. Das Frontend erreicht das Backend dann unter `http://helper-backend:3332`.
+**Note:** If you want to use your own network (e.g., `helper-network`), add a `networks` section to `deploy.yml` and connect both services to it. The frontend will then reach the backend at `http://helper-backend:3332`.
 
-## 💻 Entwicklung / Development
+## Development
 
-### Projekt-Struktur / Project Structure
+### Project Structure
 
 ```
 Jellyflix-Helper/
 ├── backend/                    # FastAPI Backend
 │   ├── app/
-│   │   ├── main.py            # Hauptanwendung + API-Routen
-│   │   ├── rename_episodes.py # TV-Serien Umbenennung
-│   │   ├── rename_music.py    # Musik Umbenennung
-│   │   └── get_dirs.py        # Verzeichnis-Scanning
+│   │   ├── main.py            # Main application + API routes
+│   │   ├── rename_episodes.py # TV show renaming
+│   │   ├── rename_music.py    # Music renaming
+│   │   └── get_dirs.py        # Directory scanning
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── frontend/                   # Vue 3 Frontend
 │   ├── src/
-│   │   ├── App.vue            # Hauptkomponente
+│   │   ├── App.vue            # Main component
 │   │   └── main.js
-│   ├── nginx-app.conf         # Nginx Reverse Proxy Config
+│   ├── nginx-app.conf         # Nginx reverse proxy config
 │   ├── Dockerfile
 │   └── package.json
-├── docker-compose.yml          # Lokales Development
-├── deploy.yml                  # Production Deployment
+├── docker-compose.yml          # Local development
+├── deploy.yml                  # Production deployment
 └── README.md
 ```
 
-### Code-Qualität / Code Quality
+### Code Quality
 
 **Backend:**
 ```powershell
-# Formatierung mit black
+# Formatting with black
 pip install black
 black backend/app/
 
-# Linting mit ruff
+# Linting with ruff
 pip install ruff
 ruff check backend/app/
 ```
 
 **Frontend:**
 ```powershell
-# Formatierung mit prettier
+# Formatting with prettier
 cd frontend
 npm run format
 ```
@@ -489,143 +484,143 @@ npm run format
 ### Testing
 
 ```powershell
-# Backend Tests (wenn implementiert)
+# Backend tests (if implemented)
 cd backend
 pytest
 
-# Frontend Tests (wenn implementiert)
+# Frontend tests (if implemented)
 cd frontend
 npm run test
 ```
 
-## 🐛 Fehlerbehebung / Troubleshooting
+## Troubleshooting
 
-### Problem: Backend kann nicht gestartet werden
+### Problem: Backend cannot be started
 
-**Symptom:** Container startet, stoppt aber sofort wieder
+**Symptom:** Container starts, but stops immediately
 
-**Lösung:**
+**Solution:**
 ```powershell
-# Logs ansehen
+# View logs
 docker compose logs helper-backend
 
-# Häufige Ursachen:
-# 1. Fehlender TMDB_API_KEY
-# 2. Ungültiger Medien-Pfad im Volume
-# 3. Fehlende Berechtigungen für /media
+# Common causes:
+# 1. Missing TMDB_API_KEY
+# 2. Invalid media path in volume
+# 3. Missing permissions for /media
 ```
 
-### Problem: Frontend kann Backend nicht erreichen
+### Problem: Frontend cannot reach backend
 
-**Symptom:** API-Aufrufe schlagen fehl mit 502 Bad Gateway
+**Symptom:** API calls fail with 502 Bad Gateway
 
-**Lösung:**
-1. Prüfe, ob beide Container im gleichen Netzwerk sind:
+**Solution:**
+1. Check if both containers are in the same network:
 ```powershell
 docker network inspect helper-network
 ```
 
-2. Prüfe Service-Namen in `nginx-app.conf`:
+2. Check service names in `nginx-app.conf`:
 ```nginx
-proxy_pass http://helper-backend:3332;  # Muss mit docker-compose.yml übereinstimmen
+proxy_pass http://helper-backend:3332;  # Must match docker-compose.yml
 ```
 
-3. Prüfe Backend-Logs:
+3. Check backend logs:
 ```powershell
 docker compose logs helper-backend
 ```
 
-### Problem: TMDB API Fehler
+### Problem: TMDB API error
 
-**Symptom:** "Serie nicht gefunden" oder API-Fehler
+**Symptom:** "Series not found" or API error
 
-**Lösung:**
-1. Prüfe API Key:
+**Solution:**
+1. Check API key:
 ```powershell
 docker compose exec helper-backend env | grep TMDB_API_KEY
 ```
 
-2. Teste API Key manuell:
+2. Test API key manually:
 ```bash
-curl "https://api.themoviedb.org/3/search/tv?api_key=DEIN_KEY&query=Breaking+Bad"
+curl "https://api.themoviedb.org/3/search/tv?api_key=YOUR_KEY&query=Breaking+Bad"
 ```
 
-3. Prüfe API-Limits (TMDB hat Rate-Limits)
+3. Check API limits (TMDB has rate limits)
 
-### Problem: Berechtigungen / Permissions
+### Problem: Permissions
 
-**Symptom:** Dateien können nicht umbenannt werden
+**Symptom:** Files cannot be renamed
 
-**Lösung:**
+**Solution:**
 ```powershell
-# Auf dem Host: Prüfe Berechtigungen
-icacls "D:\Pfad\zu\Medien"
+# On the host: Check permissions
+icacls "D:\Path\to\Media"
 
-# Im Container: Prüfe Berechtigungen
+# In container: Check permissions
 docker compose exec helper-backend ls -la /media
 
-# Lösung: Gib dem Container Schreibrechte
-# Option 1: Ändere Host-Berechtigungen
-# Option 2: Nutze Docker user-Mapping
+# Solution: Give the container write rights
+# Option 1: Change host permissions
+# Option 2: Use Docker user mapping
 ```
 
-### Problem: Port bereits belegt
+### Problem: Port already in use
 
 **Symptom:** "port is already allocated"
 
-**Lösung:**
+**Solution:**
 ```powershell
-# Prüfe welcher Prozess den Port nutzt
+# Check which process uses the port
 netstat -ano | findstr :3333
 netstat -ano | findstr :3332
 
-# Ändere Ports in docker-compose.yml
+# Change ports in docker-compose.yml
 ports:
-  - "8080:3000"  # Statt 3333:3000
+  - "8080:3000"  # Instead of 3333:3000
 ```
 
-### Problem: Umlaute werden falsch dargestellt
+### Problem: Umlauts are displayed incorrectly
 
-**Symptom:** Dateinamen mit ä, ö, ü sind falsch
+**Symptom:** Filenames with ä, ö, ü are wrong
 
-**Lösung:**
-- Musik: Prüfe, ob die Audio-Tags UTF-8 kodiert sind
-- TV-Shows: Prüfe TMDB-Spracheinstellung (`language` Parameter)
-- Der Code normalisiert Umlaute automatisch (ä→ae, ö→oe, ü→ue)
+**Solution:**
+- Music: Check if audio tags are UTF-8 encoded
+- TV Shows: Check TMDB language setting (`language` parameter)
+- The code normalizes umlauts automatically (ä→ae, ö→oe, ü→ue)
 
-## 📝 Changelog
+## Changelog
 
-### Version 1.0.0 (aktuell)
-- ✅ Initiales Release
-- ✅ TV-Serien Umbenennung via TMDB
-- ✅ Musik Umbenennung via Metadata
-- ✅ Vue 3 Web-Interface
-- ✅ Docker Compose Setup
-- ✅ Nginx Reverse Proxy
-- ✅ Mehrsprachige Unterstützung
+### Version 1.0.0 (current)
+- ✅ Initial release
+- ✅ TV show renaming via TMDB
+- ✅ Music renaming via metadata
+- ✅ Vue 3 web interface
+- ✅ Docker Compose setup
+- ✅ Nginx reverse proxy
+- ✅ Multi-language support
 
-## 🤝 Contributing
+## Contributing
 
-Contributions sind willkommen! Bitte:
+Contributions are welcome! Please:
 
-1. Forke das Repository
-2. Erstelle einen Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Committe deine Änderungen (`git commit -m 'Add some AmazingFeature'`)
-4. Push zum Branch (`git push origin feature/AmazingFeature`)
-5. Öffne einen Pull Request
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a pull request
 
-## 🙏 Danksagungen / Acknowledgments
+## Acknowledgments
 
-- [The Movie Database (TMDB)](https://www.themoviedb.org/) für die kostenlose API
-- [FastAPI](https://fastapi.tiangolo.com/) für das exzellente Python-Framework
-- [Vue.js](https://vuejs.org/) für das reaktive Frontend-Framework
-- [Mutagen](https://mutagen.readthedocs.io/) für Audio-Metadata-Handling
+- [The Movie Database (TMDB)](https://www.themoviedb.org/) for the free API
+- [FastAPI](https://fastapi.tiangolo.com/) for the excellent Python framework
+- [Vue.js](https://vuejs.org/) for the reactive frontend framework
+- [Mutagen](https://mutagen.readthedocs.io/) for audio metadata handling
 
-## 📧 Support
+## Support
 
-Bei Fragen oder Problemen:
-- Öffne ein [Issue](https://github.com/TXCJulian/Jellyflix-Helper/issues)
-- Kontaktiere den Maintainer
+For questions or issues:
+- Open an [issue](https://github.com/TXCJulian/Jellyflix-Helper/issues)
+- Contact the maintainer
 
 ---
 

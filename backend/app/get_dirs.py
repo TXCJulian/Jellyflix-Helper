@@ -1,4 +1,5 @@
 import os
+import ast
 from dotenv import load_dotenv
 from functools import lru_cache
 
@@ -7,8 +8,8 @@ load_dotenv("dependencies/.env")
 BASE_PATH = os.getenv("BASE_PATH") or "/media"
 TVSHOW_FOLDER_NAME = os.getenv("TVSHOW_FOLDER_NAME") or "TV Shows"
 MUSIC_FOLDER_NAME = os.getenv("MUSIC_FOLDER_NAME") or "Music"
-VALID_VIDEO_EXT = set(eval(os.getenv("VALID_VIDEO_EXT", "{}")))
-VALID_MUSIC_EXT = set(eval(os.getenv("VALID_MUSIC_EXT", "{}")))
+VALID_VIDEO_EXT = set(ast.literal_eval(os.getenv("VALID_VIDEO_EXT", "{'.mp4', '.mkv', '.mov', '.avi'}")))
+VALID_MUSIC_EXT = set(ast.literal_eval(os.getenv("VALID_MUSIC_EXT", "{'.mp3', '.flac', '.m4a', '.wav'}")))
 
 def has_valid_files(path: str, extensions: set) -> bool:
     for _, _, files in os.walk(path):
@@ -32,14 +33,12 @@ def get_dirs(base: str, extensions: set) -> list[str]:
     return sorted(directories)
 
 def get_tvshow_dirs() -> list[str]:
-    """Suche nach TV-Show-Verzeichnissen: /BASE_PATH/TVSHOW_FOLDER_NAME/Serienname/Season XX/"""
     tvshow_base = os.path.join(BASE_PATH, TVSHOW_FOLDER_NAME)
     if not os.path.isdir(tvshow_base):
         return []
     return get_dirs(tvshow_base, VALID_VIDEO_EXT)
 
 def get_music_dirs() -> list[str]:
-    """Suche nach Musik-Verzeichnissen: /BASE_PATH/MUSIC_FOLDER_NAME/Künstlername/Album/"""
     music_base = os.path.join(BASE_PATH, MUSIC_FOLDER_NAME)
     if not os.path.isdir(music_base):
         return []

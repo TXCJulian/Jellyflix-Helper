@@ -3,13 +3,22 @@ import re
 import unicodedata
 import requests
 import urllib.parse
+import ast
 from difflib import SequenceMatcher
 from dotenv import load_dotenv
 
 load_dotenv("dependencies/.env")
 
 API_KEY = os.getenv("TMDB_API_KEY") or "YOUR_TMDB_API_KEY"
-VALID_VIDEO_EXT = os.getenv("VALID_VIDEO_EXT") or {'.mp4', '.mkv', '.mov', '.avi'}
+
+env_ext = os.getenv("VALID_VIDEO_EXT")
+if env_ext:
+    try:
+        VALID_VIDEO_EXT = ast.literal_eval(env_ext)
+    except (ValueError, SyntaxError):
+        VALID_VIDEO_EXT = {'.mp4', '.mkv', '.mov', '.avi'}
+else:
+    VALID_VIDEO_EXT = {'.mp4', '.mkv', '.mov', '.avi'}
 
 def strip_accents(s: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
@@ -82,7 +91,7 @@ def rename_episodes(
     logs = []
 
     if not API_KEY or API_KEY.startswith("DEIN_"):
-        return logs, "Bitte TMDB API_KEY im Skript setzen."
+        return logs, "Please set the TMDB API_KEY in the script."
     if not os.path.isdir(directory):
         return logs, f"Ordner nicht gefunden: {directory}"
 
@@ -94,7 +103,7 @@ def rename_episodes(
     try:
         season_eps = tmdb_get_season(show_id, season, lang)
     except Exception as e:
-        return logs, f"Staffel {season} der Serie '{series}' nicht gefunden"
+        return logs, f"Season {season} of series '{series}' not found"
 
     remaining = []
     for ep in season_eps:
@@ -128,9 +137,14 @@ def rename_episodes(
                 ep = leftovers.pop(0)
                 assignments[i] = (f, ep["num"], ep["title"], score)
 
+    renamed_count = 0
+    already_correct_count = 0
+    skipped_count = 0
+
     for f, num, title, score in assignments:
         if num is None:
-            logs.append(f"[ SKIP ]\t'{f}' kein sicherer Match (score={score:.2f})")
+            logs.append(f"[ SKIP ]\t'{f}' no confident match (score={score:.2f})")
+            skipped_count += 1
             continue
         ext = os.path.splitext(f)[1]
         safe_title = clean_filename(title)
@@ -139,7 +153,9 @@ def rename_episodes(
         dst = os.path.join(directory, new_name)
 
         if os.path.abspath(src) == os.path.abspath(dst):
-            logs.append(f"[  OK  ]\t'{f}' bereits korrekt")
+            logs.append(f"[  OK  ]\t'{f}' already correct")
+            already_correct_count += 1
+            continue
         else:
             if os.path.exists(dst):
                 base, ext2 = os.path.splitext(dst)
@@ -151,6 +167,7 @@ def rename_episodes(
                         break
                     k += 1
             logs.append(f"[RENAME]\t'{f}' -> {os.path.basename(dst)}  (match={score:.2f})")
+            renamed_count += 1
             if not dry_run:
                 os.rename(src, dst)
                 old_nfo = os.path.splitext(src)[0] + ".nfo"
@@ -158,6 +175,11 @@ def rename_episodes(
                     try:
                         os.remove(old_nfo)
                     except Exception as e:
-                        logs.append(f"\t[!] .nfo löschen fehlgeschlagen: {e}")
+                        logs.append(f"\t[!] .nfo deletion failed: {e}")
+
+    if dry_run:
+        logs.append(f"\nSummary: {renamed_count} files would be renamed, {skipped_count} skipped")
+    else:
+        logs.append(f"\nSummary: {renamed_count} files successfully renamed, {already_correct_count} already correct, {skipped_count} skipped")
 
     return logs, None
