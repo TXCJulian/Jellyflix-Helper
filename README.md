@@ -1,221 +1,184 @@
-# Media Renamer - Erweiterte Version
+# Docker-Rename
 
-Ein Docker-basiertes Tool zum automatischen Umbenennen von:
-- **TV-Serien-Episoden** basierend auf TMDB-Daten
-- **Musik-Dateien (FLAC)** basierend auf Metadaten
+## Project overview
 
-## 🎯 Features
+This project consists of a backend (FastAPI, Python) and a frontend (Vue 3, Vite, Nginx). Both run in separate containers and communicate over a shared Docker network.
 
-### Episode Renamer
-- Automatische Umbenennung von TV-Episoden via TMDB API
-- Fuzzy-Matching für unscharfe Dateinamen
-- Dry-Run Modus zum Testen
-- Sequential Assignment für fehlende Episoden
-- Mehrsprachig (DE/EN)
+## Prerequisites
 
-### Music Renamer  
-- Automatische Umbenennung von FLAC-Dateien basierend auf ID3-Tags
-- Format: `{Disc}-{Track} {Title}.flac` (z.B. `01-03 Wonderwall.flac`)
-- Automatische Bereinigung von Mojibake und ungültigen Zeichen
-- Duplikat-Erkennung und Cleanup
-- Dry-Run Modus
+- Docker & Docker Compose
 
-## 📁 Ordnerstruktur
+## Build & run locally (Docker Compose)
 
-Das Projekt erwartet folgende Struktur:
+1. Adjust environment variables in `docker-compose.yml` and `frontend/.env` if needed (e.g., TMDB_API_KEY, media paths).
+2. Build and start the containers:
 
-```
-/media/
-├── TV Shows/
-│   ├── Breaking Bad/
-│   │   ├── Season 01/
-│   │   │   ├── episode1.mkv
-│   │   │   └── episode2.mkv
-│   │   └── Season 02/
-│   └── The Office/
-│       └── Season 01/
-└── Music/
-    ├── The Beatles/
-    │   ├── Abbey Road/
-    │   │   ├── track1.flac
-    │   │   └── track2.flac
-    │   └── Revolver/
-    └── Pink Floyd/
-        └── Dark Side of the Moon/
+```powershell
+docker compose up --build
 ```
 
-## 🚀 Installation & Start
+The backend will be available at http://localhost:3332 and the frontend at http://localhost:3333.
 
-### Lokale Entwicklung
+## Architecture & communication
 
-```bash
-# 1. Repository klonen
-git clone https://github.com/TXCJulian/Docker-Rename.git
-cd Docker-Rename
+### Overview
 
-# 2. Ordnerstruktur erstellen
-mkdir -p media/TV\ Shows media/Music
+The project uses an Nginx reverse proxy inside the frontend container to transparently forward backend API requests. The browser talks to a single port (3333), and Nginx routes requests internally to the backend.
 
-# 3. TMDB API Key setzen (optional als .env)
-# Oder direkt in docker-compose.yml eintragen
-
-# 4. Container starten
-docker-compose up --build
-```
-
-Die Anwendung ist dann verfügbar unter:
-- Frontend: http://localhost:3333
-- Backend API: http://localhost:3332
-
-### Production Deployment
-
-```bash
-# 1. Images bauen und pushen
-cd backend
-docker build -t bosscock/episode-renamer:backend .
-docker push bosscock/episode-renamer:backend
-
-cd ../frontend
-docker build -t bosscock/episode-renamer:frontend .
-docker push bosscock/episode-renamer:frontend
-
-# 2. Mit deploy.yml starten
-docker-compose -f deploy.yml up -d
-```
-
-### CasaOS Deployment
-
-1. Netzwerk erstellen (einmalig):
-```bash
-sudo docker network create renamer-network
-```
-
-2. `casaos-deploy.yml` anpassen:
-   - `TMDB_API_KEY` eintragen
-   - Volume-Pfad auf deinen Media-Ordner setzen
-
-3. In CasaOS importieren und starten
-
-## ⚙️ Umgebungsvariablen
-
-| Variable | Standard | Beschreibung |
-|----------|----------|--------------|
-| `BASE_PATH` | `/media` | Basis-Pfad für alle Medien |
-| `TVSHOW_FOLDER_NAME` | `TV Shows` | Unterordner für TV-Serien |
-| `MUSIC_FOLDER_NAME` | `Music` | Unterordner für Musik |
-| `TMDB_API_KEY` | - | API-Key von themoviedb.org (für Episode Renamer) |
-| `VALID_VIDEO_EXT` | `{'.mp4', '.mkv', '.mov', '.avi'}` | Gültige Video-Extensions |
-| `VALID_MUSIC_EXT` | `{'.flac', '.wav', '.mp3'}` | Gültige Musik-Extensions (für Verzeichnis-Scan) |
-
-## 🎨 UI-Übersicht
-
-Das Frontend zeigt zwei Renamer nebeneinander:
+### Request flow
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Media Renamer                         │
-├──────────────────────────┬──────────────────────────────┤
-│   📺 Episode Renamer     │     🎵 Music Renamer        │
-│                          │                              │
-│  - Serie eingeben        │  - Künstler eingeben        │
-│  - Staffel wählen        │  - Album filtern (optional) │
-│  - Verzeichnis wählen    │  - Verzeichnis wählen       │
-│  - Sprache               │  - Dry-Run                  │
-│  - Dry-Run, Threshold    │  - Umbenennen               │
-│  - Umbenennen            │                              │
-└──────────────────────────┴──────────────────────────────┘
-│                    📋 Log-Ausgabe                        │
-│  (Gemeinsame Log-Ausgabe für beide Renamer)            │
-└─────────────────────────────────────────────────────────┘
+Browser                    Frontend container               Backend container
+  |                             (Nginx)                          (FastAPI)
+  |                               |                                  |
+  |--[1] GET :3333/directories--->|                                  |
+  |    (HTTP Request)             |                                  |
+  |                               |--[2] proxy_pass----------------->|
+  |                               |    http://renamer-backend:3332   |
+  |                               |    (Docker network)              |
+  |                               |                                  |
+  |                               |<---[3] JSON response-------------|
+  |<--[4] JSON response-----------|                                  |
 ```
 
-## 🔧 API-Endpunkte
+Step by step:
 
-### Episode Renamer
-- `GET /directories?series=...&season=...` - Liste TV-Verzeichnisse
-- `POST /directories/refresh` - Cache leeren
-- `POST /rename` - Episoden umbenennen
+1. Browser → Frontend (port 3333)  
+   The browser loads the Vue app from `http://your-server:3333` and makes API calls like:
+   ```javascript
+   fetch('/directories/tvshows')  // same-origin request
+   ```
 
-### Music Renamer
-- `GET /music/directories?artist=...&album=...` - Liste Musik-Verzeichnisse
-- `POST /music/directories/refresh` - Cache leeren
-- `POST /music/rename` - FLAC-Dateien umbenennen
+2. Nginx proxy routing  
+   `nginx-app.conf` defines the proxy rules:
+   ```nginx
+   location /directories/ {
+       proxy_pass http://renamer-backend:3332/directories/;
+   }
+   location /rename/ {
+       proxy_pass http://renamer-backend:3332/rename/;
+   }
+   ```
 
-## 📝 Änderungen zur Vorgängerversion
+3. Docker network (`renamer-network`)  
+   Nginx can resolve `renamer-backend` via the service name (Docker network DNS).  
+   The backend container listens internally on port 3332.
 
-1. **Erweiterte Pfadstruktur**: 
-   - Von `/tvshows` zu `/media` mit Unterordnern
-   - Konfigurierbare Ordnernamen via ENV
+4. Response back to the browser  
+   FastAPI responds → Nginx forwards it → the browser receives JSON.
 
-2. **Neuer Music Renamer**:
-   - Parallel zum Episode Renamer
-   - Separates API (`/music/*` Routes)
-   - Eigener Directory-Cache
+### Benefits of this architecture
 
-3. **Verbessertes UI**:
-   - Zwei-Spalten-Layout (responsive)
-   - Gemeinsame Log-Ausgabe über volle Breite
-   - Emoji-Icons für bessere Übersicht
+✅ No CORS issues: from the browser’s perspective, all requests are same-origin  
+✅ Single entry point: only port 3333 needs to be exposed  
+✅ Backend can stay private: port 3332 doesn’t have to be published  
+✅ Simple SSL termination: HTTPS only at Nginx  
+✅ Standard production pattern: API gateway in front of microservices
 
-4. **Backend-Architektur**:
-   - `get_dirs.py`: Separate Funktionen für TV/Music
-   - `rename_music.py`: Neue Modul für FLAC-Renaming
-   - Caching pro Medientyp
+### Good to know
 
-## 🐛 Troubleshooting
+- The browser doesn’t talk to the backend directly — only to port 3333.
+- `renamer-backend` is only resolvable within the Docker network.
+- The frontend `.env` is empty (`VITE_API_BASE_URL=""`), so the app uses `window.location.origin` as the base URL.
 
-### Keine Verzeichnisse werden gefunden
-- Prüfe Volume-Mounts in `docker-compose.yml`
-- Stelle sicher, dass die Ordnerstruktur stimmt (`/media/TV Shows/` und `/media/Music/`)
-- Prüfe Container-Logs: `docker logs episode-renamer_backend`
+> Note:
+> If you change service names (e.g., `helper-backend`) in your compose/deploy files, update them in the Nginx configuration (`frontend/nginx-app.conf`) as well. Otherwise, the frontend won’t reach the backend service (see the `proxy_pass` lines in the Nginx config).
 
-### Frontend kann Backend nicht erreichen
-- Stelle sicher, dass das Netzwerk `renamer-network` existiert
-- Prüfe Nginx-Konfiguration in `frontend/nginx-app.conf`
-- DevTools → Network → Prüfe `/api/directories` Aufrufe
+## Deployment
 
-### FLAC-Dateien werden nicht umbenannt
-- Prüfe, ob Metadaten vorhanden sind (Title, Track, Disc)
-- Aktiviere Dry-Run, um zu sehen, was passieren würde
-- Logs zeigen genau, welche Dateien übersprungen wurden
+Use `deploy.yml` as a template for server deployment. Adjust volumes and environment variables for your environment.
 
-##  Deployment Details
+## Push images to Docker Hub
 
-### Deployment auf CasaOS
+The compose/deploy files expect the images:
 
-1. Stoppen Sie die aktuellen Container:
-```bash
-sudo docker stop episode-renamer_backend episode-renamer_frontend
-sudo docker rm episode-renamer_backend episode-renamer_frontend
+- `bosscock/jellyflix-helper:backend`
+- `bosscock/jellyflix-helper:frontend`
+
+If your Docker Hub username isn’t `bosscock`, replace it in the commands below and in `deploy.yml`/`docker-compose.yml` accordingly.
+
+### 1) Log in to Docker Hub
+
+```powershell
+docker login
 ```
 
-2. Neue Images bauen und pushen (lokal auf Ihrem Dev-System):
-```bash
-# Backend
-cd backend
-docker build -t bosscock/episode-renamer:backend .
-docker push bosscock/episode-renamer:backend
+### 2) Build and tag images locally
 
-# Frontend
-cd ../frontend
-docker build -t bosscock/episode-renamer:frontend .
-docker push bosscock/episode-renamer:frontend
+Backend (FastAPI):
+
+```powershell
+docker build -t bosscock/jellyflix-helper:backend ./backend
 ```
 
-3. Verwenden Sie die neue `casaos-deploy.yml` in CasaOS
+Frontend (Vue + Nginx):
 
-4. Container starten:
-```bash
-sudo docker compose -f casaos-deploy.yml up -d
+```powershell
+docker build -t bosscock/jellyflix-helper:frontend ./frontend
 ```
 
-### Zugriff
+Optional: add version tags as well (recommended for reproducible deployments):
 
-- Frontend: `http://192.168.0.75:3333` (oder aktuelle Host-IP)
-- Backend direkt: `http://192.168.0.75:3332` (für API-Tests)
+```powershell
+$version = "v1.0.0"
+docker tag bosscock/jellyflix-helper:backend  bosscock/jellyflix-helper:backend-$version
+docker tag bosscock/jellyflix-helper:frontend bosscock/jellyflix-helper:frontend-$version
+```
 
-Die Frontend-Anwendung kommuniziert intern über `/api` mit dem Backend, unabhängig von der Host-IP!
+### 3) Push images
 
-## 👤 Autor
+```powershell
+docker push bosscock/jellyflix-helper:backend
+docker push bosscock/jellyflix-helper:frontend
 
-TXCJulian
+# optionally push the version tags as well
+docker push bosscock/jellyflix-helper:backend-$version
+docker push bosscock/jellyflix-helper:frontend-$version
+```
+
+### Optional: Build and push multi-arch (amd64 + arm64)
+
+For servers on different architectures (x86_64 and ARM, e.g., Raspberry Pi):
+
+```powershell
+# one-time: create a builder
+docker buildx create --name multi --use ; docker buildx inspect --bootstrap
+
+# backend multi-arch
+docker buildx build --platform linux/amd64,linux/arm64 `
+   -t bosscock/jellyflix-helper:backend `
+    ./backend `
+    --push
+
+# frontend multi-arch
+docker buildx build --platform linux/amd64,linux/arm64 `
+   -t bosscock/jellyflix-helper:frontend `
+    ./frontend `
+    --push
+```
+
+### 4) Use the deploy file
+
+After pushing, the target server can pull and start the images, e.g., using the provided `deploy.yml`:
+
+```powershell
+docker compose -f deploy.yml pull
+docker compose -f deploy.yml up -d
+```
+
+Note: If you want to use a custom network (e.g., `renamer-network`), add a `networks` section to `deploy.yml` and attach both services to it. In that case, the frontend reaches the backend at `http://renamer-backend:3332`.
+
+## Important files
+
+- `docker-compose.yml`: Local setup, build contexts, network
+- `deploy.yml`: Example for deployment using pushed images
+- `frontend/.env`: API base URL (empty = same-origin via Nginx proxy)
+- `frontend/nginx-app.conf`: Key piece — Nginx reverse proxy configuration for API routes
+- `backend/Dockerfile`: Python 3.12 (LTS), FastAPI/Uvicorn
+- `frontend/Dockerfile`: Node 20 (LTS), multi-stage build with Nginx runtime
+
+## Notes
+
+- Media directories must be mounted into the backend as a volume at `/media`.
+- Backend environment variables are set in `docker-compose.yml`.
+- Important: Use stable LTS versions (Python 3.11/3.12, Node 20/22). Newer versions like Python 3.13 or Node 25 may cause subtle runtime issues.

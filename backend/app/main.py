@@ -1,27 +1,63 @@
 from fastapi import FastAPI, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import os
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from rename_tmdb import rename_episodes
-from rename_music import rename_music_files
-from get_dirs import (
-    _get_all_dirs_cached,
-    _get_tvshow_dirs_cached,
-    _get_music_dirs_cached,
-    BASE_PATH,
-    TVSHOW_FOLDER_NAME,
-    MUSIC_FOLDER_NAME
-)
+from rename_episodes import rename_episodes
+from rename_music import rename_music
+from get_dirs import _get_all_dirs_cached, _get_music_dirs_cached
 
 load_dotenv("dependencies/.env")
 
-# Aus .env: gültige Video-Extensions
-VALID_VIDEO_EXT = set(eval(os.getenv("VALID_VIDEO_EXT", "{'.mp4', '.mkv', '.mov', '.avi'}")))
+BASE_PATH = os.getenv("BASE_PATH") or "/media"
+TVSHOW_FOLDER_NAME = os.getenv("TVSHOW_FOLDER_NAME") or "TV Shows"
+MUSIC_FOLDER_NAME = os.getenv("MUSIC_FOLDER_NAME") or "Music"
+VALID_VIDEO_EXT = set(eval(os.getenv("VALID_VIDEO_EXT", "{}"))) or {'.mp4', '.mkv', '.mov', '.avi'}
+VALID_MUSIC_EXT = set(eval(os.getenv("VALID_MUSIC_EXT", "{}"))) or {'.flac', '.wav', '.mp3'}
 
-app = FastAPI()
+class DirChangeHandler(FileSystemEventHandler):
+    def on_created(self, event):
+        if event.is_directory:
+            _get_all_dirs_cached.cache_clear()
+            _get_music_dirs_cached.cache_clear()
+
+    def on_deleted(self, event):
+        if event.is_directory:
+            _get_all_dirs_cached.cache_clear()
+            _get_music_dirs_cached.cache_clear()
+
+    def on_moved(self, event):
+        if event.is_directory:
+            _get_all_dirs_cached.cache_clear()
+            _get_music_dirs_cached.cache_clear()
+
+
+# Global observer instance
+_observer = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan with startup and shutdown events."""
+    global _observer
+    
+    # Startup
+    handler = DirChangeHandler()
+    _observer = Observer()
+    _observer.schedule(handler, BASE_PATH, recursive=True)
+    _observer.start()
+    
+    yield
+    
+    # Shutdown
+    _observer.stop()
+    _observer.join()
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,48 +67,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class DirChangeHandler(FileSystemEventHandler):
-    def on_created(self, event):
-        if event.is_directory:
-            _get_all_dirs_cached.cache_clear()
-            _get_tvshow_dirs_cached.cache_clear()
-            _get_music_dirs_cached.cache_clear()
 
-    def on_deleted(self, event):
-        if event.is_directory:
-            _get_all_dirs_cached.cache_clear()
-            _get_tvshow_dirs_cached.cache_clear()
-            _get_music_dirs_cached.cache_clear()
-
-    def on_moved(self, event):
-        if event.is_directory:
-            _get_all_dirs_cached.cache_clear()
-            _get_tvshow_dirs_cached.cache_clear()
-            _get_music_dirs_cached.cache_clear()
-
-
-@app.on_event("startup")
-def start_fs_watcher():
-    handler = DirChangeHandler()
-    observer = Observer()
-    observer.schedule(handler, BASE_PATH, recursive=True)
-    observer.start()
-    app.state.fs_observer = observer
-
-
-@app.on_event("shutdown")
-def stop_fs_watcher():
-    observer = app.state.fs_observer
-    observer.stop()
-    observer.join()
-
-
-@app.get("/directories")
+@app.get("/directories/tvshows")
 def list_directories(
-    series: str | None = Query(None, description="Optionaler Serienfilter"),
-    season: int | None = Query(None, description="Optionale Staffelnummer")
+    series: str | None = Query(None, description="Serienfilter"),
+    season: int | None = Query(None, description="Staffelnummer")
 ):
-    all_dirs = _get_tvshow_dirs_cached()
+    all_dirs = _get_all_dirs_cached()
 
     # nach Serie filtern
     filtered = all_dirs
@@ -92,75 +93,40 @@ def list_directories(
     return {"directories": filtered}
 
 
-@app.post("/directories/refresh")
-def refresh_directories():
-    _get_all_dirs_cached.cache_clear()
-    _get_tvshow_dirs_cached.cache_clear()
-    return {"status": "ok"}
-
-
-# ============= MUSIC ROUTES =============
-
-@app.get("/music/directories")
+@app.get("/directories/music")
 def list_music_directories(
-    artist: str | None = Query(None, description="Optionaler Künstlerfilter"),
-    album: str | None = Query(None, description="Optionales Album-Filter")
+    artist: str | None = Query(None, description="Künstlerfilter"),
+    album: str | None = Query(None, description="Albumfilter")
 ):
-    """Liste alle Musik-Alben-Verzeichnisse."""
     all_dirs = _get_music_dirs_cached()
 
-    # nach Künstler filtern
     filtered = all_dirs
     if artist:
         artist_lc = artist.lower()
         filtered = [d for d in filtered if artist_lc in d.lower()]
 
-    # nach Album filtern (optional)
     if album:
         album_lc = album.lower()
-        filtered = [d for d in filtered if album_lc in d.lower()]
+        result = []
+        for d in filtered:
+            parts = d.split('/')
+            if len(parts) >= 2:
+                rest_path = '/'.join(parts[1:]).lower()
+                if album_lc in rest_path:
+                    result.append(d)
+        filtered = result
 
     return {"directories": filtered}
 
 
-@app.post("/music/directories/refresh")
-def refresh_music_directories():
-    """Leert den Cache für Musik-Verzeichnisse."""
+@app.post("/directories/refresh")
+def refresh_directories():
+    _get_all_dirs_cached.cache_clear()
     _get_music_dirs_cached.cache_clear()
     return {"status": "ok"}
 
 
-@app.post("/music/rename")
-async def rename_music(
-    artist: str = Form(...),
-    directory: str = Form(...),
-    dry_run: bool = Form(...)
-):
-    """Benennt FLAC-Dateien in einem Album-Ordner um."""
-    path = os.path.join(BASE_PATH, MUSIC_FOLDER_NAME, directory)
-    
-    if not os.path.isdir(path):
-        return {
-            "success": False,
-            "error": "Ordner nicht gefunden",
-            "log": [],
-            "directories": _get_music_dirs_cached()
-        }
-
-    logs, error = rename_music_files(
-        folder=path,
-        dry_run=dry_run
-    )
-
-    return {
-        "success": error is None,
-        "error": error,
-        "log": logs,
-        "directories": _get_music_dirs_cached()
-    }
-
-
-@app.post("/rename")
+@app.post("/rename/episodes")
 async def rename(
     series: str = Form(...),
     season: int = Form(...),
@@ -176,7 +142,7 @@ async def rename(
             "success": False,
             "error": "Ordner nicht gefunden",
             "log": [],
-            "directories": _get_tvshow_dirs_cached()
+            "directories": _get_all_dirs_cached()
         }
 
     logs, error = rename_episodes(
@@ -193,7 +159,34 @@ async def rename(
         "success": error is None,
         "error": error,
         "log": logs,
-        "directories": _get_tvshow_dirs_cached()
+        "directories": _get_all_dirs_cached()
+    }
+
+
+@app.post("/rename/music")
+async def rename_music_route(
+    directory: str = Form(...),
+    dry_run: bool = Form(...)
+):
+    path = os.path.join(BASE_PATH, MUSIC_FOLDER_NAME, directory)
+    if not os.path.isdir(path):
+        return {
+            "success": False,
+            "error": "Ordner nicht gefunden",
+            "log": [],
+            "directories": _get_music_dirs_cached()
+        }
+
+    logs, error = rename_music(
+        directory=path,
+        dry_run=dry_run
+    )
+
+    return {
+        "success": error is None,
+        "error": error,
+        "log": logs,
+        "directories": _get_music_dirs_cached()
     }
 
 if __name__ == "__main__":

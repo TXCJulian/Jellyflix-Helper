@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  renamer-backend:
-    image: bosscock/episode-renamer:backend
-    container_name: episode-renamer_backend
+  helper-backend:
+    image: bosscock/jellyflix-helper:backend
+    container_name: jellyflix-helper_backend
     command: []
     environment:
       - BASE_PATH=/media
@@ -21,20 +21,17 @@ services:
     volumes:
       - /path/to/your/media:/media:rw
     networks:
-      - renamer-network
+      - helper-network
     deploy:
-      resources:
-        limits:
-          memory: 15391M
       restart_policy:
         condition: on-failure
 
-  renamer-frontend:
-    image: bosscock/episode-renamer:frontend
-    container_name: episode-renamer_frontend
+  helper-frontend:
+    image: bosscock/jellyflix-helper:frontend
+    container_name: jellyflix-helper_frontend
     command: []
     depends_on:
-      - renamer-backend
+      - helper-backend
     ports:
       - target: 3000
         published: 3333
@@ -42,14 +39,11 @@ services:
         mode: host
     restart: unless-stopped
     networks:
-      - renamer-network
+      - helper-network
     deploy:
-      resources:
-        limits:
-          memory: 15391M
       restart_policy:
         condition: on-failure
 
 networks:
-  renamer-network:
+  helper-network:
     driver: bridge

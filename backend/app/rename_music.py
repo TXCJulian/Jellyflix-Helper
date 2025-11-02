@@ -1,14 +1,21 @@
-#!/usr/bin/env python3
-"""
-FLAC Music Renamer - API Integration Version
-Benennt FLAC-Dateien basierend auf Metadaten um.
-"""
 import os
 import re
 import unicodedata
 from mutagen.flac import FLAC
+from mutagen.wave import WAVE
+from mutagen.mp3 import MP3
+from mutagen.oggvorbis import OggVorbis
+from mutagen.oggopus import OggOpus
+from mutagen.aiff import AIFF
+from mutagen.asf import ASF
+from mutagen.musepack import Musepack
 import filecmp
-from typing import Optional, Tuple, List
+from dotenv import load_dotenv
+from typing import Optional, Any, Tuple
+
+load_dotenv("dependencies/.env")
+
+VALID_MUSIC_EXT = set(eval(os.getenv("VALID_MUSIC_EXT", "{}"))) or {'.flac', '.wav', '.mp3'}
 
 DISALLOWED_RE = re.compile(r'[\x00-\x1F<>:"/\\|?*]')
 
@@ -22,7 +29,6 @@ def try_decode_bytes(b: bytes) -> str:
     return b.decode("utf-8", errors="replace")
 
 def fix_mojibake_if_needed(s: str) -> str:
-    """Heuristik: wenn typische Mojibake-Sequenzen vorkommen, Re-encoding versuchen."""
     suspicious = any(x in s for x in ("�", "Ã", "Â"))
     if not suspicious:
         return s
@@ -49,7 +55,6 @@ def fix_mojibake_if_needed(s: str) -> str:
     return best
 
 def sanitize_tag_value(value) -> str:
-    """Nimmt Tag-Value und gibt sauberen str zurück."""
     if value is None:
         return ""
 
@@ -66,9 +71,8 @@ def sanitize_tag_value(value) -> str:
     return s
 
 def get_first_tag_value(audio: FLAC, tag_name: str) -> Optional[str]:
-    """Liest Tag und gibt ersten Wert als str oder None zurück."""
     try:
-        vals = audio.get(tag_name)
+        vals: Any = audio.get(tag_name)
     except Exception:
         return None
 
@@ -91,159 +95,137 @@ def get_first_tag_value(audio: FLAC, tag_name: str) -> Optional[str]:
     except Exception:
         return None
 
-def rename_music_files(
-    folder: str,
-    dry_run: bool = False
-) -> Tuple[List[str], Optional[str]]:
-    """
-    Benennt FLAC-Dateien basierend auf Metadaten um.
-    
-    Args:
-        folder: Pfad zum Album-Ordner
-        dry_run: Wenn True, werden keine Änderungen vorgenommen
-    
-    Returns:
-        Tuple[List[str], Optional[str]]: (logs, error_message)
-    """
-    logs = []
-    
-    if not os.path.isdir(folder):
-        return logs, f"Ordner nicht gefunden: {folder}"
+def has_valid_music_files(folder: str) -> bool:
+    for _, _, files in os.walk(folder):
+        for f in files:
+            if any(f.lower().endswith(ext.lower()) for ext in VALID_MUSIC_EXT):
+                return True
+    return False
+
+def load_audio_file(filepath: str) -> Optional[Any]:
+    _, ext = os.path.splitext(filepath)
+    ext_lower = ext.lower()
     
     try:
-        all_files = os.listdir(folder)
-        flac_files = [f for f in all_files if f.lower().endswith('.flac')]
-        
-        if not flac_files:
-            return [f"Keine FLAC-Dateien in {folder} gefunden"], None
-        
-        logs.append(f"Gefundene FLAC-Dateien: {len(flac_files)}")
-        
-        renamed_count = 0
-        skipped_count = 0
-        
-        for filename in flac_files:
-            filepath = os.path.join(folder, filename)
-            
-            try:
-                audio = FLAC(filepath)
-            except Exception as e:
-                logs.append(f"❌ Lesen fehlgeschlagen: {filename}: {e}")
-                skipped_count += 1
-                continue
+        if ext_lower == '.flac':
+            return FLAC(filepath)
+        elif ext_lower == '.wav':
+            return WAVE(filepath)
+        elif ext_lower == '.mp3':
+            return MP3(filepath)
+        elif ext_lower == '.ogg':
+            return OggVorbis(filepath)
+        elif ext_lower == '.opus':
+            return OggOpus(filepath)
+        elif ext_lower in ('.aiff', '.aif'):
+            return AIFF(filepath)
+        elif ext_lower in ('.wma', '.asf'):
+            return ASF(filepath)
+        elif ext_lower in ('.mpc', '.mp+', '.mpp'):
+            return Musepack(filepath)
+        else:
+            return None
+    except Exception:
+        return None
 
-            raw_title = get_first_tag_value(audio, "title")
-            raw_track = get_first_tag_value(audio, "tracknumber") or get_first_tag_value(audio, "track")
-            raw_disk = get_first_tag_value(audio, "discnumber") or get_first_tag_value(audio, "disc")
+def rename_music(
+    directory: str,
+    dry_run: bool = False
+) -> Tuple[list[str], Optional[str]]:
 
-            if not raw_title or not raw_track or not raw_disk:
-                logs.append(f"⚠️ Fehlende Metadaten: {filename}")
-                skipped_count += 1
-                continue
+    logs: list[str] = []
+    error: Optional[str] = None
 
-            title = sanitize_tag_value(raw_title)
-            track_s = sanitize_tag_value(raw_track)
-            disk_s = sanitize_tag_value(raw_disk)
+    if not os.path.isdir(directory):
+        error = f"Ordner nicht gefunden: {directory}"
+        return logs, error
 
-            # Disknummer extrahieren
-            disk_num = 0
-            try:
-                if raw_disk:
-                    m = re.search(r"\d", str(raw_disk))
-                    disk_num = int(m.group(0)) if m else 0
-            except Exception:
-                disk_num = 0
+    if not has_valid_music_files(directory):
+        error = f"Keine gültigen Musikdateien gefunden (Extensions: {VALID_MUSIC_EXT})"
+        return logs, error
 
-            # Tracknummer extrahieren
-            m2 = re.match(r"\s*(\d+)", track_s)
-            try:
-                track_num = int(m2.group(1)) if m2 else 0
-            except Exception:
-                track_num = 0
+    renamed_count = 0
+    skipped_count = 0
 
-            if not title:
-                logs.append(f"⚠️ Titel leer nach Bereinigung: {filename}")
-                skipped_count += 1
-                continue
-
-            new_name_base = f"{disk_num:02d}-{track_num:02d} {title}.flac"
-            new_name_base = new_name_base.strip()
-            new_path = os.path.join(folder, new_name_base)
-
-            # Falls Zielname existiert, Suffix hinzufügen
-            if os.path.exists(new_path) and new_path != filepath:
-                base, ext = os.path.splitext(new_name_base)
-                i = 1
-                while True:
-                    candidate = f"{base} ({i}){ext}"
-                    candidate_path = os.path.join(folder, candidate)
-                    if not os.path.exists(candidate_path):
-                        new_path = candidate_path
-                        new_name_base = candidate
-                        break
-                    i += 1
-
-            # Umbenennen oder Dry-Run-Log
-            if filepath == new_path:
-                logs.append(f"⏭️ Bereits korrekt: {filename}")
-                continue
-            
-            if dry_run:
-                logs.append(f"[DRY-RUN] {filename} → {new_name_base}")
-                renamed_count += 1
-            else:
-                try:
-                    os.rename(filepath, new_path)
-                    logs.append(f"✅ {filename} → {new_name_base}")
-                    renamed_count += 1
-                except Exception as e:
-                    logs.append(f"❌ Fehler beim Umbenennen {filename}: {e}")
-                    skipped_count += 1
-
-        # Cleanup Windows-Suffixe (nur wenn nicht dry-run)
-        if not dry_run:
-            cleanup_logs = cleanup_windows_suffixes(folder)
-            logs.extend(cleanup_logs)
-
-        # Zusammenfassung
-        logs.append("")
-        logs.append(f"📊 Zusammenfassung: {renamed_count} umbenannt, {skipped_count} übersprungen")
-        
-        return logs, None
-        
-    except Exception as e:
-        return logs, f"Fehler beim Verarbeiten: {str(e)}"
-
-def cleanup_windows_suffixes(folder: str) -> List[str]:
-    """Entfernt unnötige Windows '(n)' Suffixe."""
-    logs = []
-    suffix_re = re.compile(r'^(?P<base>.+) \((?P<num>\d+)\)(?P<ext>\.[^.]+)$')
-
-    for entry in os.listdir(folder):
-        m = suffix_re.match(entry)
-        if not m:
+    for filename in os.listdir(directory):
+        if not any(filename.lower().endswith(ext.lower()) for ext in VALID_MUSIC_EXT):
             continue
 
-        base = m.group('base')
-        ext = m.group('ext')
-        suffixed_path = os.path.join(folder, entry)
-        candidate_name = f"{base}{ext}"
-        candidate_path = os.path.join(folder, candidate_name)
+        filepath = os.path.join(directory, filename)
+        if os.path.isdir(filepath):
+            continue
+
+        audio = load_audio_file(filepath)
+        if audio is None:
+            # still skip silently (only OK/RENAME should be logged)
+            skipped_count += 1
+            continue
+
+        raw_title = get_first_tag_value(audio, "title")
+        raw_track = get_first_tag_value(audio, "tracknumber") or get_first_tag_value(audio, "track")
+        raw_disk = get_first_tag_value(audio, "discnumber") or get_first_tag_value(audio, "disc")
+
+        if not raw_title or not raw_track or not raw_disk:
+            skipped_count += 1
+            continue
+
+        title = sanitize_tag_value(raw_title)
+        track_s = sanitize_tag_value(raw_track)
+        disk_s = sanitize_tag_value(raw_disk)
+
+        disk_num = 0
+        try:
+            if raw_disk:
+                m = re.search(r"\d", str(raw_disk))
+                disk_num = int(m.group(0)) if m else 0
+        except Exception:
+            disk_num = 0
+
+        m2 = re.match(r"\s*(\d+)", track_s)
+        try:
+            track_num = int(m2.group(1)) if m2 else 0
+        except Exception:
+            track_num = 0
+
+        if not title:
+            skipped_count += 1
+            continue
+
+        _, ext = os.path.splitext(filename)
+        new_name_base = f"{disk_num:02d}-{track_num:02d} {title}{ext}"
+        new_name_base = new_name_base.strip()
+        new_path = os.path.join(directory, new_name_base)
+
+        if os.path.abspath(filepath) == os.path.abspath(new_path):
+            logs.append(f"[  OK  ]\t'{filename}' bereits korrekt")
+            continue
+
+        if os.path.exists(new_path):
+            base, file_ext = os.path.splitext(new_name_base)
+            i = 1
+            while True:
+                candidate = f"{base} ({i}){file_ext}"
+                candidate_path = os.path.join(directory, candidate)
+                if not os.path.exists(candidate_path):
+                    new_path = candidate_path
+                    break
+                i += 1
 
         try:
-            if not os.path.exists(candidate_path):
-                os.rename(suffixed_path, candidate_path)
-                logs.append(f"🧹 Suffix entfernt: {entry} → {candidate_name}")
-            else:
-                try:
-                    same = filecmp.cmp(suffixed_path, candidate_path, shallow=False)
-                except Exception:
-                    same = False
+            if not dry_run:
+                os.rename(filepath, new_path)
+                # Delete associated .txt or .lrc lyric files
+                base_name = os.path.splitext(filepath)[0]
+                for lyric_ext in ['.txt', '.lrc']:
+                    old_lyric = base_name + lyric_ext
+                    if os.path.exists(old_lyric):
+                        try:
+                            os.remove(old_lyric)
+                        except Exception as e:
+                            logs.append(f"\t[!] {lyric_ext} löschen fehlgeschlagen: {e}")
+            logs.append(f"[RENAME]\t'{filename}' -> {os.path.basename(new_path)}")
+            renamed_count += 1
+        except Exception:
+            skipped_count += 1
 
-                if same:
-                    os.remove(suffixed_path)
-                    logs.append(f"🗑️ Duplikat entfernt: {entry}")
-        except Exception as e:
-            logs.append(f"⚠️ Cleanup-Fehler für {entry}: {e}")
-    
-    return logs
+    return logs, None

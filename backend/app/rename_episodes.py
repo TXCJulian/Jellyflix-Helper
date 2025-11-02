@@ -8,9 +8,8 @@ from dotenv import load_dotenv
 
 load_dotenv("dependencies/.env")
 
-API_KEY = os.getenv("TMDB_API_KEY")
-# Gültige Video-Endungen aus .env laden (Python-Set-Syntax erwartet)
-VALID_VIDEO_EXT = set(eval(os.getenv("VALID_VIDEO_EXT", "{'.mp4', '.mkv', '.mov', '.avi'}")))
+API_KEY = os.getenv("TMDB_API_KEY") or "YOUR_TMDB_API_KEY"
+VALID_VIDEO_EXT = os.getenv("VALID_VIDEO_EXT") or {'.mp4', '.mkv', '.mov', '.avi'}
 
 def strip_accents(s: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))

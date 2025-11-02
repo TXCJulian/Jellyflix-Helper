@@ -2,183 +2,133 @@
   <div id="app" class="app">
     <h1>Media Renamer</h1>
 
-    <div class="renamer-grid">
-      <!-- Episode Renamer -->
-      <div class="renamer-section">
-        <h2>📺 Episode Renamer</h2>
-        <form @submit.prevent="submitEpisodeRename" class="form-container">
+    <div class="pane-grid">
+      <!-- Episodes Pane -->
+      <div class="pane">
+        <h2>Episode Renamer</h2>
+        <form @submit.prevent="submitRenameEpisodes" class="form-container">
           <div>
-            <label for="ep-series">Serie:</label>
-            <input
-              id="ep-series"
-              v-model="episodeForm.series"
-              type="text"
-              placeholder="Name der Serie"
-              required
-            />
+            <label class="label_top" for="series">Serie:</label>
+            <input id="series" v-model="ep.form.series" type="text" placeholder="Name der Serie" required />
           </div>
 
           <div>
-            <label for="ep-season">Staffel:</label>
-            <input
-              id="ep-season"
-              v-model.number="episodeForm.season"
-              type="number"
-              min="1"
-              required
-            />
+            <label for="season">Staffel:</label>
+            <input id="season" v-model.number="ep.form.season" type="number" min="1" required />
           </div>
 
           <div>
-            <label for="ep-directory">Verzeichnis:</label>
-            <select
-              id="ep-directory"
-              v-model="episodeForm.directory"
-              :disabled="isLoadingEpisodeDirs || isRenamingEpisodes"
-              required
-            >
-              <option v-for="dir in episodeDirectories" :key="dir" :value="dir">
-                {{ dir }}
-              </option>
+            <label for="directory-ep">Verzeichnis:</label>
+            <select id="directory-ep" v-model="ep.form.directory" :disabled="ep.isLoadingDirs || ep.isRenaming"
+              required>
+              <template v-if="ep.directories.length > 0">
+                <option v-for="dir in ep.directories" :key="dir" :value="dir">
+                  {{ dir }}
+                </option>
+              </template>
+              <option v-else disabled value="">Keine Ordner gefunden</option>
             </select>
 
-            <button
-              type="button"
-              @click="refreshEpisodeDirectories"
-              :disabled="isLoadingEpisodeDirs || isRenamingEpisodes"
-              class="btn-refresh"
-            >
-              <span v-if="isLoadingEpisodeDirs" class="loader-sm"></span>
+            <button type="button" @click="refreshEpisodeDirectories" :disabled="ep.isLoadingDirs || ep.isRenaming"
+              class="btn-refresh">
+              <span v-if="ep.isLoadingDirs" class="loader-sm"></span>
               <span v-else>Verzeichnisse neu laden</span>
             </button>
           </div>
 
           <div>
-            <label for="ep-lang">Sprache:</label>
-            <select id="ep-lang" v-model="episodeForm.lang">
+            <label for="lang">Sprache:</label>
+            <select id="lang" v-model="ep.form.lang">
               <option value="de">Deutsch</option>
               <option value="en">Englisch</option>
             </select>
           </div>
 
           <div class="checkbox-group">
-            <input id="ep-dry_run" v-model="episodeForm.dry_run" type="checkbox" />
-            <label for="ep-dry_run">--dry-run</label>
+            <input id="dry_run_ep" v-model="ep.form.dry_run" type="checkbox" />
+            <label for="dry_run_ep">--dry-run</label>
           </div>
+
           <div class="checkbox-group">
-            <input id="ep-assign_seq" v-model="episodeForm.assign_seq" type="checkbox" />
-            <label for="ep-assign_seq">--assign-seq</label>
+            <input id="assign_seq" v-model="ep.form.assign_seq" type="checkbox" />
+            <label for="assign_seq">--assign-seq</label>
           </div>
 
           <div>
-            <label for="ep-threshold">Match Threshold:</label>
-            <input
-              id="ep-threshold"
-              v-model.number="episodeForm.threshold"
-              type="number"
-              step="0.05"
-              min="0"
-              max="1"
-            />
+            <label for="threshold">Match Threshold:</label>
+            <input id="threshold" v-model.number="ep.form.threshold" type="number" step="0.05" min="0" max="1" />
           </div>
 
           <div>
-            <button
-              type="submit"
-              :disabled="isRenamingEpisodes || isLoadingEpisodeDirs"
-              class="btn-rename"
-            >
-              <span v-if="isRenamingEpisodes" class="loader"></span>
+            <button type="submit" :disabled="ep.isRenaming || ep.isLoadingDirs" class="btn-rename">
+              <span v-if="ep.isRenaming" class="loader"></span>
               <span v-else>Umbenennen</span>
             </button>
           </div>
         </form>
+
+        <div v-if="ep.error" class="error-container">
+          <strong>Fehler:</strong> {{ ep.error }}
+        </div>
       </div>
 
-      <!-- Music Renamer -->
-      <div class="renamer-section">
-        <h2>🎵 Music Renamer</h2>
-        <form @submit.prevent="submitMusicRename" class="form-container">
+      <!-- Music Pane -->
+      <div class="pane">
+        <h2>Music Renamer</h2>
+        <form @submit.prevent="submitRenameMusic" class="form-container">
           <div>
-            <label for="music-artist">Künstler:</label>
-            <input
-              id="music-artist"
-              v-model="musicForm.artist"
-              type="text"
-              placeholder="Name des Künstlers"
-              required
-            />
+            <label class="label_top" for="artist">Künstler:</label>
+            <input id="artist" v-model="mu.form.artist" type="text" placeholder="Name des Künstlers"/>
           </div>
 
           <div>
-            <label for="music-album">Album (optional):</label>
-            <input
-              id="music-album"
-              v-model="musicForm.album"
-              type="text"
-              placeholder="Album zum Filtern"
-            />
+            <label for="album">Album:</label>
+            <input id="album" v-model="mu.form.album" type="text" placeholder="Name des Albums" />
           </div>
 
           <div>
-            <label for="music-directory">Verzeichnis:</label>
-            <select
-              id="music-directory"
-              v-model="musicForm.directory"
-              :disabled="isLoadingMusicDirs || isRenamingMusic"
-              required
-            >
-              <option v-if="!musicDirectories.length" disabled value="">
-                Keine Verzeichnisse gefunden
-              </option>
-              <option v-for="dir in musicDirectories" :key="dir" :value="dir">
-                {{ dir }}
-              </option>
+            <label for="directory-mu">Verzeichnis:</label>
+            <select id="directory-mu" v-model="mu.form.directory" :disabled="mu.isLoadingDirs || mu.isRenaming"
+              required>
+              <template v-if="mu.directories.length > 0">
+                <option v-for="dir in mu.directories" :key="dir" :value="dir">
+                  {{ dir }}
+                </option>
+              </template>
+              <option v-else disabled value="">Keine Ordner gefunden</option>
             </select>
 
-            <button
-              type="button"
-              @click="refreshMusicDirectories"
-              :disabled="isLoadingMusicDirs || isRenamingMusic"
-              class="btn-refresh"
-            >
-              <span v-if="isLoadingMusicDirs" class="loader-sm"></span>
+            <button type="button" @click="refreshMusicDirectories" :disabled="mu.isLoadingDirs || mu.isRenaming"
+              class="btn-refresh">
+              <span v-if="mu.isLoadingDirs" class="loader-sm"></span>
               <span v-else>Verzeichnisse neu laden</span>
             </button>
           </div>
 
           <div class="checkbox-group">
-            <input id="music-dry_run" v-model="musicForm.dry_run" type="checkbox" />
-            <label for="music-dry_run">--dry-run</label>
+            <input id="dry_run_mu" v-model="mu.form.dry_run" type="checkbox" />
+            <label for="dry_run_mu">--dry-run</label>
           </div>
 
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-
           <div>
-            <button
-              type="submit"
-              :disabled="isRenamingMusic || isLoadingMusicDirs"
-              class="btn-rename"
-            >
-              <span v-if="isRenamingMusic" class="loader"></span>
+            <button type="submit" :disabled="mu.isRenaming || mu.isLoadingDirs" class="btn-rename">
+              <span v-if="mu.isRenaming" class="loader"></span>
               <span v-else>Umbenennen</span>
             </button>
           </div>
         </form>
+
+        <div v-if="mu.error" class="error-container">
+          <strong>Fehler:</strong> {{ mu.error }}
+        </div>
       </div>
-    </div>
 
-    <!-- Shared Log Container -->
-    <div class="log-container">
-      <h3>📋 Log-Ausgabe</h3>
-      <pre v-if="log.length">{{ log.join("\n") }}</pre>
-      <p v-else class="log-placeholder">Keine Einträge</p>
-    </div>
-
-    <div v-if="error" class="error-container">
-      <strong>❌ Fehler:</strong> {{ error }}
+      <!-- Log Section - spans full width -->
+      <div class="log-section">
+        <div class="log-container">
+          <pre>{{ combinedLog }}</pre>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -190,406 +140,214 @@ export default {
   name: "App",
   data() {
     return {
-      // Episode Renamer
-      episodeDirectories: [],
-      episodeForm: {
-        series: "",
-        season: 1,
-        directory: "",
-        dry_run: true,
-        assign_seq: false,
-        threshold: 0.75,
-        lang: "de",
+      // Episodes state
+      ep: {
+        directories: [],
+        form: {
+          series: "",
+          season: 1,
+          directory: "",
+          dry_run: true,
+          assign_seq: false,
+          threshold: 0.75,
+          lang: "de",
+        },
+        log: [],
+        error: "",
+        isLoadingDirs: false,
+        isRenaming: false,
       },
-      isLoadingEpisodeDirs: false,
-      isRenamingEpisodes: false,
-
-      // Music Renamer
-      musicDirectories: [],
-      musicForm: {
-        artist: "",
-        album: "",
-        directory: "",
-        dry_run: true,
+      // Music state
+      mu: {
+        directories: [],
+        form: {
+          artist: "",
+          album: "",
+          directory: "",
+          dry_run: true,
+        },
+        log: [],
+        error: "",
+        isLoadingDirs: false,
+        isRenaming: false,
       },
-      isLoadingMusicDirs: false,
-      isRenamingMusic: false,
-
-      // Shared
-      log: [],
-      error: "",
-      API_BASE: import.meta.env.VITE_API_BASE_URL || "/api",
+      hasStartedRename: false,
+  // Base URL: falls VITE_API_BASE_URL leer/undefiniert ist, Same-Origin verwenden
+  API_BASE: (import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.trim()) || window.location.origin,
     };
+  },
+  computed: {
+    combinedLog() {
+      const logs = [];
+      if (this.ep.log.length > 0) {
+        logs.push(...this.ep.log);
+      }
+      if (this.mu.log.length > 0) {
+        if (logs.length > 0) logs.push(''); // Empty line separator
+        logs.push(...this.mu.log);
+      }
+      return logs.length > 0 ? logs.join('\n') : (this.hasStartedRename ? '' : 'Bereit für Umbenennung...');
+    }
   },
   created() {
     this.debouncedFetchEpisodes = debounce(this.fetchEpisodeDirectories, 300);
     this.debouncedFetchMusic = debounce(this.fetchMusicDirectories, 300);
   },
   mounted() {
-    this.fetchEpisodeDirectories(this.episodeForm.series, this.episodeForm.season);
-    this.fetchMusicDirectories(this.musicForm.artist, this.musicForm.album);
+    this.fetchEpisodeDirectories();
+    this.fetchMusicDirectories();
   },
   watch: {
-    "episodeForm.series"(newSeries) {
-      this.debouncedFetchEpisodes(newSeries, this.episodeForm.season);
-    },
-    "episodeForm.season"(newSeason) {
-      this.debouncedFetchEpisodes(this.episodeForm.series, newSeason);
-    },
-    "musicForm.artist"(newArtist) {
-      this.debouncedFetchMusic(newArtist, this.musicForm.album);
-    },
-    "musicForm.album"(newAlbum) {
-      this.debouncedFetchMusic(this.musicForm.artist, newAlbum);
-    },
+    // Episodes filters
+    "ep.form.series"() { this.debouncedFetchEpisodes(); },
+    "ep.form.season"() { this.debouncedFetchEpisodes(); },
+    // Music filters
+    "mu.form.artist"() { this.debouncedFetchMusic(); },
+    "mu.form.album"() { this.debouncedFetchMusic(); },
   },
   methods: {
-    // === Episode Renamer Methods ===
-    async fetchEpisodeDirectories(series = "", season = null) {
-      this.isLoadingEpisodeDirs = true;
-      this.error = "";
+    // Episodes: directories
+    async fetchEpisodeDirectories() {
+      this.ep.isLoadingDirs = true;
+      this.ep.error = "";
 
-      const url = new URL(`${this.API_BASE}/directories`, window.location.origin);
-      if (series) url.searchParams.set("series", series);
-      if (season !== null && season !== "") {
-        url.searchParams.set("season", season);
+      const url = new URL('/directories/tvshows', this.API_BASE);
+      if (this.ep.form.series) url.searchParams.set("series", this.ep.form.series);
+      if (this.ep.form.season !== null && this.ep.form.season !== "") {
+        url.searchParams.set("season", this.ep.form.season);
       }
 
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        this.episodeDirectories = data.directories;
-        if (
-          this.episodeDirectories.length > 0 &&
-          (!this.episodeForm.directory ||
-            !this.episodeDirectories.includes(this.episodeForm.directory))
-        ) {
-          this.episodeForm.directory = this.episodeDirectories[0];
+        this.ep.directories = data.directories || [];
+        if (this.ep.directories.length > 0) {
+          if (!this.ep.form.directory || !this.ep.directories.includes(this.ep.form.directory)) {
+            this.ep.form.directory = this.ep.directories[0];
+          }
+        } else {
+          this.ep.form.directory = "";
         }
-      } catch (err) {
-        this.error = `Fehler beim Laden der Episode-Verzeichnisse: ${err.message}`;
+      } catch {
+        this.ep.error = "Fehler beim Laden der Verzeichnisse";
       } finally {
-        this.isLoadingEpisodeDirs = false;
+        this.ep.isLoadingDirs = false;
       }
     },
-
     async refreshEpisodeDirectories() {
-      this.isLoadingEpisodeDirs = true;
-      this.error = "";
-
+      this.ep.isLoadingDirs = true;
+      this.ep.error = "";
       try {
-        const res = await fetch(`${this.API_BASE}/directories/refresh`, {
-          method: "POST",
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        await this.fetchEpisodeDirectories(this.episodeForm.series, this.episodeForm.season);
-      } catch (err) {
-        this.error = `Fehler beim Aktualisieren der Episode-Verzeichnisse: ${err.message}`;
-      } finally {
-        this.isLoadingEpisodeDirs = false;
+        const url = new URL('/directories/refresh', this.API_BASE);
+        await fetch(url, { method: "POST" });
+      } catch {
+        // ignore
       }
+      await this.fetchEpisodeDirectories();
+      this.ep.isLoadingDirs = false;
     },
 
-    async submitEpisodeRename() {
-      this.isRenamingEpisodes = true;
-      this.error = "";
-      this.log = [];
+    // Music: directories
+    async fetchMusicDirectories() {
+      this.mu.isLoadingDirs = true;
+      this.mu.error = "";
 
-      const formData = new FormData();
-      Object.entries(this.episodeForm).forEach(([key, val]) =>
-        formData.append(key, val)
-      );
-
-      try {
-        const res = await fetch(`${this.API_BASE}/rename`, {
-          method: "POST",
-          body: formData,
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-
-        if (data.error) this.error = data.error;
-        this.log = data.log || [];
-        if (data.directories) this.episodeDirectories = data.directories;
-      } catch (err) {
-        this.error = `Fehler beim Umbenennen der Episoden: ${err.message}`;
-      } finally {
-        this.isRenamingEpisodes = false;
-      }
-    },
-
-    // === Music Renamer Methods ===
-    async fetchMusicDirectories(artist = "", album = "") {
-      this.isLoadingMusicDirs = true;
-      this.error = "";
-
-      const url = new URL(`${this.API_BASE}/music/directories`, window.location.origin);
-      if (artist) url.searchParams.set("artist", artist);
-      if (album) url.searchParams.set("album", album);
+      const url = new URL('/directories/music', this.API_BASE);
+      if (this.mu.form.artist) url.searchParams.set("artist", this.mu.form.artist);
+      if (this.mu.form.album) url.searchParams.set("album", this.mu.form.album);
 
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        this.musicDirectories = data.directories;
-        if (
-          this.musicDirectories.length > 0 &&
-          (!this.musicForm.directory ||
-            !this.musicDirectories.includes(this.musicForm.directory))
-        ) {
-          this.musicForm.directory = this.musicDirectories[0];
-        } else if (this.musicDirectories.length === 0) {
-          this.musicForm.directory = "";
+        this.mu.directories = data.directories || [];
+        if (this.mu.directories.length > 0) {
+          if (!this.mu.form.directory || !this.mu.directories.includes(this.mu.form.directory)) {
+            this.mu.form.directory = this.mu.directories[0];
+          }
+        } else {
+          this.mu.form.directory = "";
         }
-      } catch (err) {
-        this.error = `Fehler beim Laden der Musik-Verzeichnisse: ${err.message}`;
+      } catch {
+        this.mu.error = "Fehler beim Laden der Verzeichnisse";
       } finally {
-        this.isLoadingMusicDirs = false;
+        this.mu.isLoadingDirs = false;
       }
     },
-
     async refreshMusicDirectories() {
-      this.isLoadingMusicDirs = true;
-      this.error = "";
-
+      this.mu.isLoadingDirs = true;
+      this.mu.error = "";
       try {
-        const res = await fetch(`${this.API_BASE}/music/directories/refresh`, {
-          method: "POST",
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        await this.fetchMusicDirectories(this.musicForm.artist, this.musicForm.album);
-      } catch (err) {
-        this.error = `Fehler beim Aktualisieren der Musik-Verzeichnisse: ${err.message}`;
-      } finally {
-        this.isLoadingMusicDirs = false;
+        const url = new URL('/directories/refresh', this.API_BASE);
+        await fetch(url, { method: "POST" });
+      } catch {
+        // ignore
       }
+      await this.fetchMusicDirectories();
+      this.mu.isLoadingDirs = false;
     },
 
-    async submitMusicRename() {
-      this.isRenamingMusic = true;
-      this.error = "";
-      this.log = [];
+    // Episodes: submit
+    async submitRenameEpisodes() {
+      this.hasStartedRename = true;
+      this.ep.isRenaming = true;
+      this.ep.error = "";
+      this.ep.log = [];
+      this.mu.log = []; // Clear music logs as well
 
       const formData = new FormData();
-      formData.append("artist", this.musicForm.artist);
-      formData.append("directory", this.musicForm.directory);
-      formData.append("dry_run", this.musicForm.dry_run);
+      formData.append("series", this.ep.form.series);
+      formData.append("season", this.ep.form.season);
+      formData.append("directory", this.ep.form.directory);
+      formData.append("dry_run", this.ep.form.dry_run);
+      formData.append("assign_seq", this.ep.form.assign_seq);
+      formData.append("threshold", this.ep.form.threshold);
+      formData.append("lang", this.ep.form.lang);
 
       try {
-        const res = await fetch(`${this.API_BASE}/music/rename`, {
+        const url = new URL('/rename/episodes', this.API_BASE);
+        const res = await fetch(url, {
           method: "POST",
           body: formData,
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-
-        if (data.error) this.error = data.error;
-        this.log = data.log || [];
-        if (data.directories) this.musicDirectories = data.directories;
-      } catch (err) {
-        this.error = `Fehler beim Umbenennen der Musik-Dateien: ${err.message}`;
+        if (data.error) this.ep.error = data.error;
+        this.ep.log = data.log || [];
+        if (data.directories) this.ep.directories = data.directories;
+      } catch {
+        this.ep.error = "Fehler beim Umbenennen.";
       } finally {
-        this.isRenamingMusic = false;
+        this.ep.isRenaming = false;
+      }
+    },
+
+    // Music: submit
+    async submitRenameMusic() {
+      this.hasStartedRename = true;
+      this.mu.isRenaming = true;
+      this.mu.error = "";
+      this.mu.log = [];
+      this.ep.log = []; // Clear episode logs as well
+
+      const formData = new FormData();
+      formData.append("directory", this.mu.form.directory);
+      formData.append("dry_run", this.mu.form.dry_run);
+
+      try {
+        const url = new URL('/rename/music', this.API_BASE);
+        const res = await fetch(url, {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.error) this.mu.error = data.error;
+        this.mu.log = data.log || [];
+        if (data.directories) this.mu.directories = data.directories;
+      } catch {
+        this.mu.error = "Fehler beim Umbenennen.";
+      } finally {
+        this.mu.isRenaming = false;
       }
     },
   },
 };
 </script>
-
-<style scoped>
-.app {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.renamer-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-@media (max-width: 900px) {
-  .renamer-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.renamer-section {
-  background: #f9f9f9;
-  border-radius: 8px;
-  padding: 20px;
-  border: 1px solid #ddd;
-}
-
-.renamer-section h2 {
-  margin-top: 0;
-  font-size: 1.3em;
-  border-bottom: 2px solid #333;
-  padding-bottom: 10px;
-  margin-bottom: 15px;
-}
-
-.form-container {
-  background: #1e1e1e;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.form-container > div {
-  display: flex;
-  flex-direction: column;
-}
-
-label {
-  font-weight: bold;
-  margin-bottom: 5px;
-  color: #fff;
-}
-
-input[type="text"],
-input[type="number"],
-select {
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.checkbox-group {
-  flex-direction: row !important;
-  align-items: center;
-  gap: 8px;
-  margin-top: 0;
-}
-
-.checkbox-group input[type="checkbox"] {
-  width: auto;
-  margin: 0;
-  padding: 0;
-  flex: 0 0 auto;
-}
-
-.checkbox-group label {
-  margin: 0;
-  font-weight: normal;
-  color: #fff;
-  white-space: nowrap;
-  hyphens: none;
-}
-
-.btn-refresh,
-.btn-rename {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 15px;
-  min-height: 40px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  margin-top: 10px;
-}
-
-.btn-refresh:hover:not(:disabled),
-.btn-rename:hover:not(:disabled) {
-  background: #0056b3;
-}
-
-.btn-refresh:disabled,
-.btn-rename:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-.spacer {
-  height: 0;
-}
-
-.log-container {
-  border: 1px solid #333;
-  border-radius: 8px;
-  padding: 15px;
-  background: #f4f4f4;
-  margin-bottom: 20px;
-  min-height: 200px;
-}
-
-.log-container h3 {
-  margin-top: 0;
-  font-size: 1.2em;
-  margin-bottom: 10px;
-}
-
-.log-container pre {
-  background: #fff;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  overflow-x: auto;
-  font-size: 13px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  margin: 0;
-}
-
-.log-placeholder {
-  color: #888;
-  font-style: italic;
-  margin: 0;
-}
-
-.error-container {
-  background: #ffebee;
-  border: 1px solid #f44336;
-  border-radius: 4px;
-  padding: 15px;
-  color: #c62828;
-  margin-bottom: 20px;
-}
-
-.loader,
-.loader-sm {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #007bff;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-.loader {
-  width: 20px;
-  height: 20px;
-}
-
-.loader-sm {
-  width: 16px;
-  height: 16px;
-}
-
-@keyframes spin {
-  to {
-    transform: translate(-50%, -50%) rotate(360deg);
-  }
-}
-</style>
