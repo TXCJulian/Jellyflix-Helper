@@ -614,10 +614,6 @@ Contributions sind willkommen! Bitte:
 4. Push zum Branch (`git push origin feature/AmazingFeature`)
 5. Öffne einen Pull Request
 
-## 📄 License
-
-Dieses Projekt ist unter der MIT-Lizenz lizenziert - siehe die LICENSE-Datei für Details.
-
 ## 🙏 Danksagungen / Acknowledgments
 
 - [The Movie Database (TMDB)](https://www.themoviedb.org/) für die kostenlose API
@@ -633,4 +629,4 @@ Bei Fragen oder Problemen:
 
 ---
 
-**Made with ❤️ for Jellyfin and Plex users**
+**Made for Jellyfin and Plex users**
