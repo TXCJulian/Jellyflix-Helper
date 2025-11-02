@@ -1,4 +1,4 @@
-# Docker-Rename
+# Jellyflix Helper
 
 ## Project overview
 
