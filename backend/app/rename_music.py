@@ -16,7 +16,7 @@ from typing import Optional, Any, Tuple
 
 load_dotenv("dependencies/.env")
 
-VALID_MUSIC_EXT = set(ast.literal_eval(os.getenv("VALID_MUSIC_EXT", "{'.flac', '.wav', '.mp3'}")))
+VALID_MUSIC_EXT = set(ast.literal_eval(os.getenv("VALID_MUSIC_EXT", "{'.mp3', '.flac', '.m4a', '.wav'}")))
 
 DISALLOWED_RE = re.compile(r'[\x00-\x1F<>:"/\\|?*]')
 

@@ -93,7 +93,7 @@ def rename_episodes(
     if not API_KEY or API_KEY.startswith("DEIN_"):
         return logs, "Please set the TMDB API_KEY in the script."
     if not os.path.isdir(directory):
-        return logs, f"Ordner nicht gefunden: {directory}"
+        return logs, f"Directory not found: {directory}"
 
     try:
         show_id = tmdb_search_show(series, lang)

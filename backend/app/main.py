@@ -17,7 +17,7 @@ BASE_PATH = os.getenv("BASE_PATH") or "/media"
 TVSHOW_FOLDER_NAME = os.getenv("TVSHOW_FOLDER_NAME") or "TV Shows"
 MUSIC_FOLDER_NAME = os.getenv("MUSIC_FOLDER_NAME") or "Music"
 VALID_VIDEO_EXT = set(ast.literal_eval(os.getenv("VALID_VIDEO_EXT", "{'.mp4', '.mkv', '.mov', '.avi'}")))
-VALID_MUSIC_EXT = set(ast.literal_eval(os.getenv("VALID_MUSIC_EXT", "{'.flac', '.wav', '.mp3'}")))
+VALID_MUSIC_EXT = set(ast.literal_eval(os.getenv("VALID_MUSIC_EXT", "{'.mp3', '.flac', '.m4a', '.wav'}")))
 
 class DirChangeHandler(FileSystemEventHandler):
     def on_created(self, event):
