@@ -148,6 +148,7 @@ def rename_music(
     renamed_count = 0
     already_correct_count = 0
     skipped_files = []
+    skipped_count = 0
 
     for filename in os.listdir(directory):
         if not any(filename.lower().endswith(ext.lower()) for ext in VALID_MUSIC_EXT):
@@ -232,18 +233,44 @@ def rename_music(
                             logs.append(f"\t[DELETE] Lyric file removed: {os.path.basename(old_lyric)}")
                         except Exception as e:
                             logs.append(f"\t[!] {lyric_ext} deletion failed: {e}")
+                logs.append(f"[RENAME]\t'{filename}' -> {os.path.basename(new_path)}")
+                renamed_count += 1
+                # try to flush directory metadata so mount clients (SMB/CIFS) notice the change
+                try:
+                    # Prefer opening directory fd if supported on the platform
+                    if hasattr(os, "O_DIRECTORY"):
+                        dir_flag = getattr(os, "O_DIRECTORY", 0)
+                        dir_fd = os.open(directory, dir_flag | os.O_RDONLY)
+                        try:
+                            os.fsync(dir_fd)
+                        finally:
+                            os.close(dir_fd)
+                    else:
+                        # fallback to os.sync() if available
+                        sync_fn = getattr(os, "sync", None)
+                        if sync_fn:
+                            sync_fn()
+                except Exception:
+                    try:
+                        sync_fn = getattr(os, "sync", None)
+                        if sync_fn:
+                            sync_fn()
+                    except Exception:
+                        pass
             else:
                 base_name = os.path.splitext(filepath)[0]
                 for lyric_ext in ['.txt', '.lrc']:
                     old_lyric = base_name + lyric_ext
                     if os.path.exists(old_lyric):
                         logs.append(f"\t[DELETE] Would remove lyric file: {os.path.basename(old_lyric)}")
-            logs.append(f"[RENAME]\t'{filename}' -> {os.path.basename(new_path)}")
-            renamed_count += 1
+                logs.append(f"[DRYRUN]\tWould rename '{filename}' -> {os.path.basename(new_path)}")
         except Exception as e:
             skipped_files.append((filename, f"Error renaming: {str(e)}"))
-
+    
+    for fname, reason in skipped_files:
+        logs.append(f"[ SKIP ]\t'{fname}' - {reason}")
     skipped_count = len(skipped_files)
+    
     if dry_run:
         logs.append(f"\nSummary: {renamed_count} files would be renamed, {skipped_count} skipped")
     else:

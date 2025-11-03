@@ -588,10 +588,65 @@ ports:
 - TV Shows: Check TMDB language setting (`language` parameter)
 - The code normalizes umlauts automatically (ä→ae, ö→oe, ü→ue)
 
+### Problem: Renamed files not visible on SMB/CIFS or NFS shares
+
+**Symptom:** Files are renamed successfully in the container (logs show success, HTTP 200), but:
+- Windows/Linux clients accessing via SMB/CIFS don't see the new filenames
+- Files appear to "disappear" or show stale names
+- Only a system/smb restart makes the changes visible
+
+**Root Cause:**
+Network filesystems (SMB/CIFS, NFS) use aggressive client-side attribute caching to improve performance. When files are renamed inside a container, the filesystem metadata changes are not immediately propagated to all clients because:
+- SMB/CIFS clients cache directory listings and file attributes for 30-60 seconds by default
+- NFS clients cache attributes according to `actimeo` settings (default 3-60 seconds)
+- Without explicit cache invalidation, clients continue to show old filenames until their cache expires or the server sends change notifications
+
+**Solution implemented:**
+The renamer calls `fsync()` on the parent directory after each successful rename and deletion operation. This forces the kernel to flush directory metadata changes to the storage backend, which triggers change notifications to SMB/NFS clients and helps them invalidate their caches faster.
+
+**Implementation details:**
+```python
+# After os.rename() and os.remove(), the code now does:
+try:
+    if hasattr(os, "O_DIRECTORY"):
+        dir_fd = os.open(directory, os.O_DIRECTORY | os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)  # Flush directory metadata
+        finally:
+            os.close(dir_fd)
+    else:
+        os.sync()  # Fallback for platforms without O_DIRECTORY
+except Exception:
+    pass  # Best-effort, don't fail the rename if fsync fails
+```
+
+**Additional recommendations for persistent issues:**
+
+For **SMB/CIFS** mounts:
+```bash
+# Reduce attribute cache timeout on the mount
+mount -t cifs //server/share /mnt -o username=user,actimeo=0
+
+# On Samba server (smb.conf):
+[share]
+    change notify = yes
+    kernel change notify = yes
+```
+
+For **NFS** mounts:
+```bash
+# Reduce attribute cache timeout
+mount -t nfs server:/export /mnt -o actimeo=1,vers=4
+
+# Or disable attribute caching completely (impacts performance)
+mount -t nfs server:/export /mnt -o noac,vers=4
+```
+
+**Note:** The `fsync()` implementation is a best-effort optimization. It significantly improves change visibility on network mounts but doesn't guarantee instant propagation on all client configurations. For mission-critical applications, consider adjusting mount options as shown above.
+
 ## Changelog
 
-### Version 1.0.0 (current)
-- ✅ Initial release
+### Version 2.0.2 (current)
 - ✅ TV show renaming via TMDB
 - ✅ Music renaming via metadata
 - ✅ Vue 3 web interface

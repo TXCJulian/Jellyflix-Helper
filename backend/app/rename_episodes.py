@@ -143,7 +143,8 @@ def rename_episodes(
 
     for f, num, title, score in assignments:
         if num is None:
-            logs.append(f"[ SKIP ]\t'{f}' no confident match (score={score:.2f})")
+            reason = "no confident match"
+            logs.append(f"[ SKIP ]\t'{f}' {reason} (score={score:.2f})")
             skipped_count += 1
             continue
         ext = os.path.splitext(f)[1]
@@ -166,9 +167,9 @@ def rename_episodes(
                         dst = cand
                         break
                     k += 1
-            logs.append(f"[RENAME]\t'{f}' -> {os.path.basename(dst)}  (match={score:.2f})")
-            renamed_count += 1
             if not dry_run:
+                logs.append(f"[RENAME]\t'{f}' -> {os.path.basename(dst)}  (match={score:.2f})")
+                renamed_count += 1
                 os.rename(src, dst)
                 old_nfo = os.path.splitext(src)[0] + ".nfo"
                 if os.path.exists(old_nfo):
@@ -176,6 +177,32 @@ def rename_episodes(
                         os.remove(old_nfo)
                     except Exception as e:
                         logs.append(f"\t[!] .nfo deletion failed: {e}")
+                # try to flush directory metadata so mount clients (SMB/CIFS) notice the change
+                try:
+                    if hasattr(os, "O_DIRECTORY"):
+                        dir_flag = getattr(os, "O_DIRECTORY", 0)
+                        dir_fd = os.open(directory, dir_flag | os.O_RDONLY)
+                        try:
+                            os.fsync(dir_fd)
+                        finally:
+                            os.close(dir_fd)
+                    else:
+                        sync_fn = getattr(os, "sync", None)
+                        if sync_fn:
+                            sync_fn()
+                except Exception:
+                    try:
+                        sync_fn = getattr(os, "sync", None)
+                        if sync_fn:
+                            sync_fn()
+                    except Exception:
+                        pass
+            else:
+                logs.append(f"[DRYRUN]\tWould rename '{f}' -> {os.path.basename(dst)}  (match={score:.2f})")
+                renamed_count += 1
+                old_nfo = os.path.splitext(src)[0] + ".nfo"
+                if os.path.exists(old_nfo):
+                    logs.append(f"\t[DELETE] Would remove .nfo file: {os.path.basename(old_nfo)}")
 
     if dry_run:
         logs.append(f"\nSummary: {renamed_count} files would be renamed, {skipped_count} skipped")
