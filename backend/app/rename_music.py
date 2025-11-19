@@ -10,7 +10,6 @@ from mutagen.oggopus import OggOpus
 from mutagen.aiff import AIFF
 from mutagen.asf import ASF
 from mutagen.musepack import Musepack
-import filecmp
 from dotenv import load_dotenv
 from typing import Optional, Any, Tuple
 
@@ -221,8 +220,8 @@ def rename_music(
                     break
                 i += 1
 
-        try:
-            if not dry_run:
+        if not dry_run:
+            try:
                 os.rename(filepath, new_path)
                 base_name = os.path.splitext(filepath)[0]
                 for lyric_ext in ['.txt', '.lrc']:
@@ -235,37 +234,36 @@ def rename_music(
                             logs.append(f"\t[!] {lyric_ext} deletion failed: {e}")
                 logs.append(f"[RENAME]\t'{filename}' -> {os.path.basename(new_path)}")
                 renamed_count += 1
-                # try to flush directory metadata so mount clients (SMB/CIFS) notice the change
-                try:
-                    # Prefer opening directory fd if supported on the platform
-                    if hasattr(os, "O_DIRECTORY"):
-                        dir_flag = getattr(os, "O_DIRECTORY", 0)
-                        dir_fd = os.open(directory, dir_flag | os.O_RDONLY)
-                        try:
-                            os.fsync(dir_fd)
-                        finally:
-                            os.close(dir_fd)
-                    else:
-                        # fallback to os.sync() if available
-                        sync_fn = getattr(os, "sync", None)
-                        if sync_fn:
-                            sync_fn()
-                except Exception:
+            except Exception as e:
+                skipped_files.append((filename, f"Error renaming: {str(e)}"))
+                continue
+            # try to flush directory metadata so mount clients (SMB/CIFS) notice the change
+            try:
+                if hasattr(os, "O_DIRECTORY"):
+                    dir_flag = getattr(os, "O_DIRECTORY", 0)
+                    dir_fd = os.open(directory, dir_flag | os.O_RDONLY)
                     try:
-                        sync_fn = getattr(os, "sync", None)
-                        if sync_fn:
-                            sync_fn()
-                    except Exception:
-                        pass
-            else:
-                base_name = os.path.splitext(filepath)[0]
-                for lyric_ext in ['.txt', '.lrc']:
-                    old_lyric = base_name + lyric_ext
-                    if os.path.exists(old_lyric):
-                        logs.append(f"\t[DELETE] Would remove lyric file: {os.path.basename(old_lyric)}")
-                logs.append(f"[DRYRUN]\tWould rename '{filename}' -> {os.path.basename(new_path)}")
-        except Exception as e:
-            skipped_files.append((filename, f"Error renaming: {str(e)}"))
+                        os.fsync(dir_fd)
+                    finally:
+                        os.close(dir_fd)
+                else:
+                    sync_fn = getattr(os, "sync", None)
+                    if sync_fn:
+                        sync_fn()
+            except Exception:
+                try:
+                    sync_fn = getattr(os, "sync", None)
+                    if sync_fn:
+                        sync_fn()
+                except Exception:
+                    pass
+        else:
+            base_name = os.path.splitext(filepath)[0]
+            for lyric_ext in ['.txt', '.lrc']:
+                old_lyric = base_name + lyric_ext
+                if os.path.exists(old_lyric):
+                    logs.append(f"\t[DELETE] Would remove lyric file: {os.path.basename(old_lyric)}")
+            logs.append(f"[DRYRUN]\tWould rename '{filename}' -> {os.path.basename(new_path)}")
     
     for fname, reason in skipped_files:
         logs.append(f"[ SKIP ]\t'{fname}' - {reason}")
