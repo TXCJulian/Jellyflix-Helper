@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import os
+import ast
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -15,8 +16,8 @@ load_dotenv("dependencies/.env")
 BASE_PATH = os.getenv("BASE_PATH") or "/media"
 TVSHOW_FOLDER_NAME = os.getenv("TVSHOW_FOLDER_NAME") or "TV Shows"
 MUSIC_FOLDER_NAME = os.getenv("MUSIC_FOLDER_NAME") or "Music"
-VALID_VIDEO_EXT = set(eval(os.getenv("VALID_VIDEO_EXT", "{}"))) or {'.mp4', '.mkv', '.mov', '.avi'}
-VALID_MUSIC_EXT = set(eval(os.getenv("VALID_MUSIC_EXT", "{}"))) or {'.flac', '.wav', '.mp3'}
+VALID_VIDEO_EXT = set(ast.literal_eval(os.getenv("VALID_VIDEO_EXT", "{'.mp4', '.mkv', '.mov', '.avi'}")))
+VALID_MUSIC_EXT = set(ast.literal_eval(os.getenv("VALID_MUSIC_EXT", "{'.mp3', '.flac', '.m4a', '.wav'}")))
 
 class DirChangeHandler(FileSystemEventHandler):
     def on_created(self, event):
@@ -70,8 +71,8 @@ app.add_middleware(
 
 @app.get("/directories/tvshows")
 def list_directories(
-    series: str | None = Query(None, description="Serienfilter"),
-    season: int | None = Query(None, description="Staffelnummer")
+    series: str | None = Query(None, description="Series filter"),
+    season: int | None = Query(None, description="Season number")
 ):
     all_dirs = _get_all_dirs_cached()
 
@@ -95,8 +96,8 @@ def list_directories(
 
 @app.get("/directories/music")
 def list_music_directories(
-    artist: str | None = Query(None, description="Künstlerfilter"),
-    album: str | None = Query(None, description="Albumfilter")
+    artist: str | None = Query(None, description="Artist filter"),
+    album: str | None = Query(None, description="Album filter")
 ):
     all_dirs = _get_music_dirs_cached()
 
@@ -140,7 +141,7 @@ async def rename(
     if not os.path.isdir(path):
         return {
             "success": False,
-            "error": "Ordner nicht gefunden",
+            "error": "Directory not found",
             "log": [],
             "directories": _get_all_dirs_cached()
         }
@@ -172,7 +173,7 @@ async def rename_music_route(
     if not os.path.isdir(path):
         return {
             "success": False,
-            "error": "Ordner nicht gefunden",
+            "error": "Directory not found",
             "log": [],
             "directories": _get_music_dirs_cached()
         }

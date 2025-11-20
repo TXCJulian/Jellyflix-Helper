@@ -16,7 +16,6 @@ services:
       - target: 3332
         published: 3332
         protocol: tcp
-        mode: host
     restart: unless-stopped
     volumes:
       - /path/to/your/media:/media:rw

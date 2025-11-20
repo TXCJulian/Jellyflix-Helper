@@ -1,5 +1,6 @@
 import os
 import re
+import ast
 import unicodedata
 from mutagen.flac import FLAC
 from mutagen.wave import WAVE
@@ -9,18 +10,17 @@ from mutagen.oggopus import OggOpus
 from mutagen.aiff import AIFF
 from mutagen.asf import ASF
 from mutagen.musepack import Musepack
-import filecmp
 from dotenv import load_dotenv
 from typing import Optional, Any, Tuple
 
 load_dotenv("dependencies/.env")
 
-VALID_MUSIC_EXT = set(eval(os.getenv("VALID_MUSIC_EXT", "{}"))) or {'.flac', '.wav', '.mp3'}
+VALID_MUSIC_EXT = set(ast.literal_eval(os.getenv("VALID_MUSIC_EXT", "{'.mp3', '.flac', '.m4a', '.wav'}")))
 
 DISALLOWED_RE = re.compile(r'[\x00-\x1F<>:"/\\|?*]')
 
 def try_decode_bytes(b: bytes) -> str:
-    """Versuche mehrere Decodings in Reihenfolge, return str."""
+    """Try multiple decodings in order, return str."""
     for enc in ("utf-8", "utf-8-sig", "cp1252", "latin-1"):
         try:
             return b.decode(enc)
@@ -137,14 +137,16 @@ def rename_music(
     error: Optional[str] = None
 
     if not os.path.isdir(directory):
-        error = f"Ordner nicht gefunden: {directory}"
+        error = f"Directory not found: {directory}"
         return logs, error
 
     if not has_valid_music_files(directory):
-        error = f"Keine gültigen Musikdateien gefunden (Extensions: {VALID_MUSIC_EXT})"
+        error = f"No valid music files found (Extensions: {VALID_MUSIC_EXT})"
         return logs, error
 
     renamed_count = 0
+    already_correct_count = 0
+    skipped_files = []
     skipped_count = 0
 
     for filename in os.listdir(directory):
@@ -157,8 +159,7 @@ def rename_music(
 
         audio = load_audio_file(filepath)
         if audio is None:
-            # still skip silently (only OK/RENAME should be logged)
-            skipped_count += 1
+            skipped_files.append((filename, "File could not be loaded"))
             continue
 
         raw_title = get_first_tag_value(audio, "title")
@@ -166,7 +167,14 @@ def rename_music(
         raw_disk = get_first_tag_value(audio, "discnumber") or get_first_tag_value(audio, "disc")
 
         if not raw_title or not raw_track or not raw_disk:
-            skipped_count += 1
+            missing = []
+            if not raw_title:
+                missing.append("title")
+            if not raw_track:
+                missing.append("track")
+            if not raw_disk:
+                missing.append("disc")
+            skipped_files.append((filename, f"Missing tags: {', '.join(missing)}"))
             continue
 
         title = sanitize_tag_value(raw_title)
@@ -188,7 +196,7 @@ def rename_music(
             track_num = 0
 
         if not title:
-            skipped_count += 1
+            skipped_files.append((filename, "Title tag is empty"))
             continue
 
         _, ext = os.path.splitext(filename)
@@ -197,7 +205,8 @@ def rename_music(
         new_path = os.path.join(directory, new_name_base)
 
         if os.path.abspath(filepath) == os.path.abspath(new_path):
-            logs.append(f"[  OK  ]\t'{filename}' bereits korrekt")
+            logs.append(f"[  OK  ]\t'{filename}' already correct")
+            already_correct_count += 1
             continue
 
         if os.path.exists(new_path):
@@ -211,21 +220,58 @@ def rename_music(
                     break
                 i += 1
 
-        try:
-            if not dry_run:
+        if not dry_run:
+            try:
                 os.rename(filepath, new_path)
-                # Delete associated .txt or .lrc lyric files
                 base_name = os.path.splitext(filepath)[0]
                 for lyric_ext in ['.txt', '.lrc']:
                     old_lyric = base_name + lyric_ext
                     if os.path.exists(old_lyric):
                         try:
                             os.remove(old_lyric)
+                            logs.append(f"\t[DELETE] Lyric file removed: {os.path.basename(old_lyric)}")
                         except Exception as e:
-                            logs.append(f"\t[!] {lyric_ext} löschen fehlgeschlagen: {e}")
-            logs.append(f"[RENAME]\t'{filename}' -> {os.path.basename(new_path)}")
-            renamed_count += 1
-        except Exception:
-            skipped_count += 1
+                            logs.append(f"\t[!] {lyric_ext} deletion failed: {e}")
+                logs.append(f"[RENAME]\t'{filename}' -> {os.path.basename(new_path)}")
+                renamed_count += 1
+            except Exception as e:
+                skipped_files.append((filename, f"Error renaming: {str(e)}"))
+                continue
+            # try to flush directory metadata so mount clients (SMB/CIFS) notice the change
+            try:
+                if hasattr(os, "O_DIRECTORY"):
+                    dir_flag = getattr(os, "O_DIRECTORY", 0)
+                    dir_fd = os.open(directory, dir_flag | os.O_RDONLY)
+                    try:
+                        os.fsync(dir_fd)
+                    finally:
+                        os.close(dir_fd)
+                else:
+                    sync_fn = getattr(os, "sync", None)
+                    if sync_fn:
+                        sync_fn()
+            except Exception:
+                try:
+                    sync_fn = getattr(os, "sync", None)
+                    if sync_fn:
+                        sync_fn()
+                except Exception:
+                    pass
+        else:
+            base_name = os.path.splitext(filepath)[0]
+            for lyric_ext in ['.txt', '.lrc']:
+                old_lyric = base_name + lyric_ext
+                if os.path.exists(old_lyric):
+                    logs.append(f"\t[DELETE] Would remove lyric file: {os.path.basename(old_lyric)}")
+            logs.append(f"[DRYRUN]\tWould rename '{filename}' -> {os.path.basename(new_path)}")
+    
+    for fname, reason in skipped_files:
+        logs.append(f"[ SKIP ]\t'{fname}' - {reason}")
+    skipped_count = len(skipped_files)
+    
+    if dry_run:
+        logs.append(f"\nSummary: {renamed_count} files would be renamed, {skipped_count} skipped")
+    else:
+        logs.append(f"\nSummary: {renamed_count} files successfully renamed, {already_correct_count} already correct, {skipped_count} skipped")
 
     return logs, None
