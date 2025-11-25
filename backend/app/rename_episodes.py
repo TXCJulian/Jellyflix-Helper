@@ -202,7 +202,7 @@ def rename_episodes(
                 renamed_count += 1
                 old_nfo = os.path.splitext(src)[0] + ".nfo"
                 if os.path.exists(old_nfo):
-                    logs.append(f"\t[DELETE] Would remove .nfo file: {os.path.basename(old_nfo)}")
+                    logs.append(f"[DELETE]\tWould remove .nfo file: {os.path.basename(old_nfo)}")
 
     if dry_run:
         logs.append(f"\nSummary: {renamed_count} files would be renamed, {skipped_count} skipped")

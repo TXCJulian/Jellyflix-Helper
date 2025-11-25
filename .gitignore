@@ -426,3 +426,5 @@ backend/*.vscode
 
 /frontend/node_modules/
 /backend/app/__pycache__
+
+TODO.txt
