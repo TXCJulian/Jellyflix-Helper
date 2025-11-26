@@ -3,13 +3,22 @@ import re
 import unicodedata
 import requests
 import urllib.parse
+import ast
 from difflib import SequenceMatcher
 from dotenv import load_dotenv
 
 load_dotenv("dependencies/.env")
 
 API_KEY = os.getenv("TMDB_API_KEY") or "YOUR_TMDB_API_KEY"
-VALID_VIDEO_EXT = os.getenv("VALID_VIDEO_EXT") or {'.mp4', '.mkv', '.mov', '.avi'}
+
+env_ext = os.getenv("VALID_VIDEO_EXT")
+if env_ext:
+    try:
+        VALID_VIDEO_EXT = ast.literal_eval(env_ext)
+    except (ValueError, SyntaxError):
+        VALID_VIDEO_EXT = {'.mp4', '.mkv', '.mov', '.avi'}
+else:
+    VALID_VIDEO_EXT = {'.mp4', '.mkv', '.mov', '.avi'}
 
 def strip_accents(s: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
@@ -82,9 +91,9 @@ def rename_episodes(
     logs = []
 
     if not API_KEY or API_KEY.startswith("DEIN_"):
-        return logs, "Bitte TMDB API_KEY im Skript setzen."
+        return logs, "Please set the TMDB API_KEY in the script."
     if not os.path.isdir(directory):
-        return logs, f"Ordner nicht gefunden: {directory}"
+        return logs, f"Directory not found: {directory}"
 
     try:
         show_id = tmdb_search_show(series, lang)
@@ -94,7 +103,7 @@ def rename_episodes(
     try:
         season_eps = tmdb_get_season(show_id, season, lang)
     except Exception as e:
-        return logs, f"Staffel {season} der Serie '{series}' nicht gefunden"
+        return logs, f"Season {season} of series '{series}' not found"
 
     remaining = []
     for ep in season_eps:
@@ -128,9 +137,15 @@ def rename_episodes(
                 ep = leftovers.pop(0)
                 assignments[i] = (f, ep["num"], ep["title"], score)
 
+    renamed_count = 0
+    already_correct_count = 0
+    skipped_count = 0
+
     for f, num, title, score in assignments:
         if num is None:
-            logs.append(f"[ SKIP ]\t'{f}' kein sicherer Match (score={score:.2f})")
+            reason = "no confident match"
+            logs.append(f"[ SKIP ]\t'{f}' {reason} (score={score:.2f})")
+            skipped_count += 1
             continue
         ext = os.path.splitext(f)[1]
         safe_title = clean_filename(title)
@@ -139,7 +154,9 @@ def rename_episodes(
         dst = os.path.join(directory, new_name)
 
         if os.path.abspath(src) == os.path.abspath(dst):
-            logs.append(f"[  OK  ]\t'{f}' bereits korrekt")
+            logs.append(f"[  OK  ]\t'{f}' already correct")
+            already_correct_count += 1
+            continue
         else:
             if os.path.exists(dst):
                 base, ext2 = os.path.splitext(dst)
@@ -150,14 +167,46 @@ def rename_episodes(
                         dst = cand
                         break
                     k += 1
-            logs.append(f"[RENAME]\t'{f}' -> {os.path.basename(dst)}  (match={score:.2f})")
             if not dry_run:
+                logs.append(f"[RENAME]\t'{f}' -> {os.path.basename(dst)}  (match={score:.2f})")
+                renamed_count += 1
                 os.rename(src, dst)
                 old_nfo = os.path.splitext(src)[0] + ".nfo"
                 if os.path.exists(old_nfo):
                     try:
                         os.remove(old_nfo)
                     except Exception as e:
-                        logs.append(f"\t[!] .nfo löschen fehlgeschlagen: {e}")
+                        logs.append(f"\t[!] .nfo deletion failed: {e}")
+                # try to flush directory metadata so mount clients (SMB/CIFS) notice the change
+                try:
+                    if hasattr(os, "O_DIRECTORY"):
+                        dir_flag = getattr(os, "O_DIRECTORY", 0)
+                        dir_fd = os.open(directory, dir_flag | os.O_RDONLY)
+                        try:
+                            os.fsync(dir_fd)
+                        finally:
+                            os.close(dir_fd)
+                    else:
+                        sync_fn = getattr(os, "sync", None)
+                        if sync_fn:
+                            sync_fn()
+                except Exception:
+                    try:
+                        sync_fn = getattr(os, "sync", None)
+                        if sync_fn:
+                            sync_fn()
+                    except Exception:
+                        pass
+            else:
+                logs.append(f"[DRYRUN]\tWould rename '{f}' -> {os.path.basename(dst)}  (match={score:.2f})")
+                renamed_count += 1
+                old_nfo = os.path.splitext(src)[0] + ".nfo"
+                if os.path.exists(old_nfo):
+                    logs.append(f"[DELETE]\tWould remove .nfo file: {os.path.basename(old_nfo)}")
+
+    if dry_run:
+        logs.append(f"\nSummary: {renamed_count} files would be renamed, {skipped_count} skipped")
+    else:
+        logs.append(f"\nSummary: {renamed_count} files successfully renamed, {already_correct_count} already correct, {skipped_count} skipped")
 
     return logs, None
